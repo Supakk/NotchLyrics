@@ -1,0 +1,51 @@
+import SwiftUI
+
+/// Expanded view — แสดง album art, ข้อมูลเพลง, controls, progress
+struct ExpandedView: View {
+    let appState: AppState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // ส่วนบน: Album art + info
+            HStack(spacing: 12) {
+                Color.clear.frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(appState.presentationTrack.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    Text(appState.presentationTrack.artist)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1)
+
+
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, appState.notchHeight + 6)
+
+            Spacer().frame(height: 8)
+
+            // Progress bar
+            ProgressBarView(
+                progress: appState.mediaEngine.progress,
+                elapsedTime: appState.mediaEngine.elapsedTime,
+                duration: appState.currentTrack.duration,
+                colors: appState.presentationColors
+            )
+            .padding(.horizontal, 20)
+
+            Spacer().frame(height: 8)
+
+            // Playback controls
+            PlaybackControlsView(appState: appState)
+
+            Spacer(minLength: 7)
+        }
+    }
+}
