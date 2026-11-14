@@ -3,7 +3,7 @@ import Combine
 import Foundation
 import SwiftUI
 
-/// ศูนย์กลางจัดการข้อมูลเพลง — observe ได้จาก SwiftUI
+/// Provides observable playback information to SwiftUI.
 @Observable
 final class MediaEngine {
     // MARK: - Published state
@@ -39,7 +39,7 @@ final class MediaEngine {
 
     func togglePlayPause() {
         if !playerBridge.send(.togglePlayPause) { bridge.sendCommand(.togglePlayPause) }
-        // หน่วงนิดนึงแล้ว refresh เพราะ state อาจยังไม่เปลี่ยนทันที
+        // Allow time for the player to update before refreshing.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.refreshNowPlaying()
         }
@@ -87,7 +87,7 @@ final class MediaEngine {
     }
 
     // MARK: - Elapsed time timer
-    // อัปเดต elapsedTime ทุก 0.5 วินาทีเพื่อให้ progress bar เลื่อน
+    // Update elapsed time every half second to advance the progress bar.
 
     private func startElapsedTimer() {
         guard elapsedTimer == nil else { return }

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import ServiceManagement
 
-/// AppDelegate — จัดการ menu bar icon, window lifecycle, mouse tracking
+/// Manages the menu bar item, window lifecycle, and mouse tracking.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: NotchWindowController!
     private var statusItem: NSStatusItem!
@@ -12,22 +12,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var stateObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // ซ่อน dock icon (ตั้งใน Info.plist ด้วย LSUIElement)
+        // Hide the Dock icon. Info.plist also sets LSUIElement.
         NSApp.setActivationPolicy(.accessory)
 
-        // สร้าง window
+        // Create the notch window.
         windowController = NotchWindowController(appState: appState)
         windowController.show()
 
-        // สร้าง menu bar icon
+        // Create the menu bar item.
         setupLockScreen()
         setupStatusItem()
         HotKeyManager.shared.registerDefaults(appState: appState)
 
-        // ตั้ง mouse monitor เพื่อ auto-collapse เมื่อ mouse ออกจาก notch
+        // Monitor the pointer so the player can collapse when it leaves the notch.
         // Hover lifecycle is owned by the view to avoid competing collapse timers.
 
-        // ฟัง notch state changes เพื่อ resize window
+        // Update the window when the notch state changes.
         stateObserver = NotificationCenter.default.addObserver(
             forName: .notchStateDidChange,
             object: nil, queue: .main
@@ -114,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: "q"
         )
 
-        // ตั้ง target สำหรับทุก item
+        // Route each menu action to the app delegate.
         menu.items.forEach { $0.target = self }
 
         statusItem.menu = menu

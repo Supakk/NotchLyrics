@@ -1,6 +1,6 @@
 import AppKit
 
-/// ข้อมูลเพลงที่กำลังเล่นอยู่
+/// Information about the current track.
 struct TrackInfo: Equatable {
     let title: String
     let artist: String
@@ -19,7 +19,7 @@ struct TrackInfo: Equatable {
 
     var hasTrack: Bool { !title.isEmpty }
 
-    /// เช็คว่าเป็นเพลงเดียวกันไหม (ไม่สนใจ elapsed/isPlaying)
+    /// Compare track identity independently of elapsed time and playback state.
     func isSameTrack(as other: TrackInfo) -> Bool {
         title == other.title && artist == other.artist && album == other.album
     }
@@ -33,7 +33,7 @@ struct TrackInfo: Equatable {
     }
 }
 
-/// สถานะของ player
+/// Player state.
 enum PlaybackState {
     case playing
     case paused
@@ -42,7 +42,7 @@ enum PlaybackState {
     var isPlaying: Bool { self == .playing }
 }
 
-/// คำสั่งควบคุม media
+/// Media playback commands.
 enum MediaCommand: Int {
     case play = 0
     case pause = 1

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// ดึงสีหลักจาก album art เพื่อใช้เป็น accent color
+/// Extracts accent colors from album artwork.
 enum ColorExtractor {
 
     static func gradient(from image: NSImage?) -> [Color] {
@@ -14,7 +14,7 @@ enum ColorExtractor {
         }
     }
 
-    /// ดึงสีเด่นจากรูป (ใช้ CIFilter AreaAverage)
+    /// Samples the average image color with the AreaAverage filter.
     static func dominantColor(from image: NSImage) -> Color {
         guard let cgImage = image.cgImage(
             forProposedRect: nil,
@@ -47,7 +47,7 @@ enum ColorExtractor {
         let g = Double(bitmap[1]) / 255.0
         let b = Double(bitmap[2]) / 255.0
 
-        // เพิ่ม saturation เล็กน้อยเพื่อให้สีชัดขึ้นบนพื้นดำ
+        // Increase saturation slightly for visibility on a black background.
         return Color(
             nsColor: NSColor(
                 red: min(r * 1.2, 1.0),

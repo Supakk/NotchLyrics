@@ -2,75 +2,75 @@
 
 > Dynamic Island for macOS with synced lyrics
 
-แอป macOS ที่เปลี่ยน notch ของ MacBook ให้เป็น Dynamic Island
-แสดงข้อมูลเพลง + controls + synced lyrics
+NotchLyrics turns the MacBook notch into a music player with track information, playback controls, and synchronized lyrics.
+
 
 ## Requirements
 
-- macOS 14.0 (Sonoma) ขึ้นไป
-- MacBook ที่มี notch (M1 Pro/Max/M2/M3/M4 series)
+- macOS 14.0 (Sonoma) or later
+- A MacBook with a display notch
 - Xcode 15+
 
 ## Quick Start
 
-### วิธีที่ 1: ใช้ SPM + Xcode
+### Option 1: Use Swift Package Manager and Xcode
 
 ```bash
 # Clone / download project
 cd NotchLyrics
 
-# เปิดใน Xcode
+# Open the package in Xcode
 open Package.swift
 ```
 
-เมื่อเปิดใน Xcode:
+In Xcode:
 
-1. เลือก target `NotchLyrics` → My Mac
-2. ไปที่ **Signing & Capabilities**:
-   - เลือก Team ของคุณ
-   - ติ๊ก **Disable Library Validation** (เพราะใช้ private framework)
-   - เพิ่ม **Hardened Runtime** → Disable Library Validation
+1. Select the `NotchLyrics` scheme and the **My Mac** destination.
+2. Open **Signing & Capabilities**.
+   - Select your development team.
+   - Enable **Disable Library Validation** for the private framework.
+   - This option is under **Hardened Runtime**.
 3. **Build & Run** (⌘R)
 
-### วิธีที่ 2: สร้าง Xcode Project ใหม่
+### Option 2: Create an Xcode project
 
-ถ้าเปิด Package.swift แล้วมีปัญหา:
+If you have trouble opening `Package.swift`, create a project manually:
 
-1. เปิด Xcode → File → New → Project
-2. เลือก **macOS → App**
+1. In Xcode, choose **File → New → Project**.
+2. Select **macOS → App**.
 3. Product Name: `NotchLyrics`
 4. Interface: **SwiftUI**, Language: **Swift**
-5. ลาก source files ทั้งหมดจาก `Sources/NotchLyrics/` เข้า project
-6. ตั้งค่า Info.plist:
-   - เพิ่ม `LSUIElement` = `YES` (ซ่อน dock icon)
+5. Drag the source files from `Sources/NotchLyrics/` into the project.
+6. Configure `Info.plist`.
+   - Set `LSUIElement` to `YES` to hide the Dock icon.
 7. Build & Run
 
-### วิธีที่ 3: Command line (ไม่แนะนำ)
+### Option 3: Run from the command line
 
 ```bash
 swift build
 .build/debug/NotchLyrics
 ```
 
-> ⚠️ ต้องรันบน macOS เท่านั้น — ไม่สามารถ build บน Linux ได้
+> Build and run the app on macOS.
 
 ## Permissions
 
-แอปต้องการ permissions ต่อไปนี้:
+The app uses the following permissions:
 
-- **Accessibility** — สำหรับ global hotkeys (System Settings → Privacy → Accessibility)
-- **Notifications** — สำหรับแสดง notification (optional)
+- **Accessibility** — global keyboard shortcuts (System Settings → Privacy & Security → Accessibility)
+- **Notifications** — optional notification delivery
 
 ## Usage
 
-เมื่อเปิดแอป:
+After launching the app:
 
-| Action | ผลลัพธ์ |
+| Action | Result |
 |--------|---------|
-| เปิดเพลงใน Apple Music / Spotify | notch แสดงชื่อเพลง |
-| Hover ที่ notch | ขยายแสดง player |
-| Mouse ออกจาก notch | ยุบกลับ |
-| คลิก "Show lyrics" | แสดงเนื้อเพลง (Phase 2) |
+| Play a song in Apple Music or Spotify | The notch displays track information. |
+| Hover over the compact notch | The notch enlarges slightly. Click the artwork to open the player. |
+| Move the pointer away from the expanded notch | The player collapses. |
+| Choose **Lyrics on Lock Screen** in the menu bar | Toggle lyrics on the lock screen. |
 | ⌘+Shift+L | Toggle lyrics |
 | ⌘+Shift+N | Toggle expand |
 
@@ -99,26 +99,26 @@ Sources/NotchLyrics/
 
 ### Private API: MediaRemote.framework
 
-แอปใช้ `MediaRemote.framework` ผ่าน `dlopen` / `dlsym`
-เป็น private framework ของ Apple — ไม่มี documentation อย่างเป็นทางการ
-อ้างอิงจาก open source projects: LyricsX, Boring Notch, Carol
+The app loads `MediaRemote.framework` dynamically using `dlopen` and `dlsym`.
+MediaRemote is a private Apple framework without public API documentation.
+Open-source references include LyricsX, Boring Notch, and Carol.
 
-**ข้อจำกัด:**
-- ลง Mac App Store ไม่ได้ (Apple ไม่อนุญาต private API)
-- API อาจเปลี่ยนเมื่อ macOS อัปเดต (ต้อง test ทุกเวอร์ชัน)
+**Limitations**
+- The app uses private APIs and is intended for distribution outside the Mac App Store.
+- Test each macOS release because the API may change.
 
 ### Distribution
 
-เนื่องจากใช้ private API จึงต้องขายนอก App Store:
-- **Gumroad** — จ่ายครั้งเดียว, จัดการ license เอง
-- **Paddle** — subscription/one-time, จัดการ VAT ให้
-- **Setapp** — subscription bundle, มี user base ใหญ่
+Options for distributing the app outside the Mac App Store include:
+- **Gumroad** — one-time purchases with developer-managed licensing
+- **Paddle** — subscriptions or one-time purchases with VAT handling
+- **Setapp** — a subscription bundle with an established user base
 
-### Code signing สำหรับ distribution
+### Code signing for distribution
 
 ```bash
-# สร้าง Developer ID certificate ใน Apple Developer account
-# แล้ว sign + notarize:
+# Create a Developer ID Application certificate in your Apple Developer account.
+# Sign and notarize the app.
 codesign --force --deep --sign "Developer ID Application: YOUR NAME" NotchLyrics.app
 xcrun notarytool submit NotchLyrics.zip --apple-id YOUR_ID --password APP_PASSWORD --team-id TEAM_ID
 xcrun stapler staple NotchLyrics.app
@@ -126,4 +126,4 @@ xcrun stapler staple NotchLyrics.app
 
 ## License
 
-MIT — ใช้ได้อิสระ แก้ไขได้ตามสบาย
+MIT — you may use and modify the software under the terms of the MIT License.

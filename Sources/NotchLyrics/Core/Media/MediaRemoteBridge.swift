@@ -2,8 +2,8 @@ import AppKit
 import Foundation
 
 // MARK: - MediaRemote Private API Bridge
-// ใช้ dlopen/dlsym เพื่อ load private framework แบบ dynamic
-// ไม่ต้อง link ตอน compile — ปลอดภัยกว่าและยืดหยุ่นกว่า
+// Load the private framework dynamically with dlopen and dlsym.
+// Resolve its symbols at runtime without linking at build time.
 
 final class MediaRemoteBridge {
     static let shared = MediaRemoteBridge()
@@ -96,7 +96,7 @@ final class MediaRemoteBridge {
 
     // MARK: - Public API
 
-    /// ดึงข้อมูล Now Playing ปัจจุบัน
+    /// Fetch the current Now Playing information.
     func getNowPlayingInfo(completion: @escaping (TrackInfo) -> Void) {
         guard let fn = MRMediaRemoteGetNowPlayingInfo else {
             completion(.empty)
@@ -109,7 +109,7 @@ final class MediaRemoteBridge {
         }
     }
 
-    /// เช็คว่ากำลังเล่นอยู่ไหม
+    /// Check whether the player is playing.
     func getIsPlaying(completion: @escaping (Bool) -> Void) {
         guard let fn = MRMediaRemoteGetNowPlayingApplicationIsPlaying else {
             completion(false)
@@ -118,14 +118,14 @@ final class MediaRemoteBridge {
         fn(DispatchQueue.main, completion)
     }
 
-    /// ส่งคำสั่ง media (play/pause/next/prev)
+    /// Send a playback or track navigation command.
     @discardableResult
     func sendCommand(_ command: MediaCommand) -> Bool {
         guard let fn = MRMediaRemoteSendCommand else { return false }
         return fn(command.rawValue, nil)
     }
 
-    /// ลงทะเบียนรับ notification เมื่อเพลงเปลี่ยน
+    /// Register for track change notifications.
     func registerForNotifications() {
         guard let fn = MRMediaRemoteRegisterForNowPlayingNotifications else { return }
         fn(DispatchQueue.main)
@@ -141,7 +141,7 @@ final class MediaRemoteBridge {
         let duration = info[Keys.duration] as? TimeInterval ?? 0
         let playbackRate = info[Keys.playbackRate] as? Double ?? 0
 
-        // คำนวณ elapsed time จาก timestamp + playback rate
+        // Calculate elapsed time from the timestamp and playback rate.
         var elapsed = info[Keys.elapsedTime] as? TimeInterval ?? 0
         if playbackRate > 0, let timestamp = info[Keys.timestamp] as? Date {
             elapsed += Date().timeIntervalSince(timestamp) * playbackRate

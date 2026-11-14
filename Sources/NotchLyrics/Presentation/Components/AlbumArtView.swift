@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// แสดง album art พร้อม fallback gradient + music icon
+/// Displays album artwork with a gradient and music symbol as a fallback.
 struct AlbumArtView: View {
     let image: NSImage?
     var size: CGFloat = 56

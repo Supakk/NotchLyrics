@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// ปุ่มควบคุมเพลง: shuffle, prev, play/pause, next, repeat
+/// Shuffle, previous track, play or pause, next track, and repeat controls.
 struct PlaybackControlsView: View {
     let appState: AppState
 
@@ -24,7 +24,7 @@ struct PlaybackControlsView: View {
 
             Spacer()
 
-            // Play / Pause (ปุ่มใหญ่ ตรงกลาง)
+            // Large central play or pause button
             Button {
                 appState.mediaEngine.togglePlayPause()
             } label: {
@@ -36,7 +36,7 @@ struct PlaybackControlsView: View {
                     Image(systemName: appState.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.black)
-                        // ขยับ play icon ไปขวานิดเพื่อให้ดู center
+                        // Shift the play symbol slightly to the right to center it visually.
                         .offset(x: appState.isPlaying ? 0 : 1.5)
                 }
             }

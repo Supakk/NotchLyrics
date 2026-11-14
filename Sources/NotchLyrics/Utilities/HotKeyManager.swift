@@ -1,7 +1,7 @@
 import AppKit
 import Carbon
 
-/// จัดการ global hotkeys — กด shortcut จากที่ไหนก็ได้
+/// Manages system-wide keyboard shortcuts.
 final class HotKeyManager {
     static let shared = HotKeyManager()
 
@@ -13,11 +13,11 @@ final class HotKeyManager {
         installHandler()
     }
 
-    /// ลงทะเบียน hotkey ใหม่
+    /// Register a keyboard shortcut.
     /// - Parameters:
-    ///   - keyCode: Virtual key code (เช่น kVK_ANSI_L = 37)
-    ///   - modifiers: Modifier flags (เช่น cmdKey | shiftKey)
-    ///   - handler: Closure ที่จะเรียกเมื่อกด
+    /// - keyCode: Virtual key code, such as kVK_ANSI_L (37).
+    /// - modifiers: Modifier flags, such as cmdKey | shiftKey.
+    /// - handler: Closure called when the shortcut is pressed.
     @discardableResult
     func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) -> UInt32 {
         let id = nextID
@@ -45,7 +45,7 @@ final class HotKeyManager {
         return id
     }
 
-    /// ลงทะเบียน ⌘+Shift+L สำหรับ toggle lyrics
+    /// Register Command-Shift-L to toggle lyrics.
     func registerDefaults(appState: AppState) {
         // ⌘+Shift+N = Toggle expand
         register(

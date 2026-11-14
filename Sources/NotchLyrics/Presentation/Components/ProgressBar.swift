@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Progress bar ที่ลากเพื่อ seek ได้
+/// A draggable playback progress bar for seeking.
 struct ProgressBarView: View {
     let progress: Double
     let elapsedTime: TimeInterval

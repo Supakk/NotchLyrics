@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Expanded view — แสดง album art, ข้อมูลเพลง, controls, progress
+/// Displays album artwork, track information, controls, and playback progress.
 struct ExpandedView: View {
     let appState: AppState
 
     var body: some View {
         VStack(spacing: 0) {
-            // ส่วนบน: Album art + info
+            // Album artwork and track information
             HStack(spacing: 12) {
                 Color.clear.frame(width: 44, height: 44)
 

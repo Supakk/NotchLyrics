@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// สถานะ UI ของ notch
+/// Presentation states for the notch.
 enum NotchState: Equatable {
-    case compact      // pill เล็กตรง notch
-    case expanded     // ขยาย: album art + controls
+    case compact      // Small pill around the notch
+    case expanded     // Album artwork and playback controls
 }
 
-/// Global app state — ใช้ @Observable เพื่อให้ SwiftUI track ได้ทั้งหมด
+/// Shared state observed by SwiftUI.
 @Observable
 final class AppState {
     // MARK: - UI State
