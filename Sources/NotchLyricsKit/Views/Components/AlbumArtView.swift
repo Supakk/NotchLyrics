@@ -15,7 +15,7 @@ struct AlbumArtView: View {
             } else {
                 // Fallback gradient
                 LinearGradient(
-                    colors: [.purple.opacity(0.6), .teal.opacity(0.4)],
+                    colors: [Color(white: 0.35), Color(white: 0.15)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

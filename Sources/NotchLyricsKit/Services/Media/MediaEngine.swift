@@ -11,7 +11,7 @@ final class MediaEngine {
     var isPlaying: Bool = false
     var hasLoadedPlaybackState = false
     var elapsedTime: TimeInterval = 0
-    var artworkColors: [Color] = [.purple, .pink]
+    var artworkColors: [Color] = ArtworkPalette.fallback
 
     // MARK: - Callbacks
     var onTrackChanged: ((TrackInfo) -> Void)?

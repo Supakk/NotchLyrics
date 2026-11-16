@@ -18,7 +18,7 @@ struct ProgressBarView: View {
     let progress: Double
     let elapsedTime: TimeInterval
     let duration: TimeInterval
-    var colors: [Color] = [.purple, .pink]
+    var colors: [Color] = ArtworkPalette.fallback
 
     @AppStorage("showRemainingTime") private var showRemainingTime = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
