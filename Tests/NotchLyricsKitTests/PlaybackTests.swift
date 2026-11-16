@@ -18,4 +18,13 @@ final class PlaybackTests: XCTestCase {
         XCTAssertEqual(PlaybackMode.sequential.next, .repeatOne)
         XCTAssertEqual(PlaybackMode.repeatOne.next, .shuffle)
     }
+
+    func testSubtitleShowsArtistAndPlaylistWithAlbumFallback() {
+        var track = TrackInfo(title: "Song", artist: "Artist", album: "Album", artwork: nil, duration: 0, elapsedTime: 0, isPlaying: true, bundleID: nil)
+        XCTAssertEqual(track.subtitle, "Artist - Album")
+        track.playlist = "Road Trip"
+        XCTAssertEqual(track.subtitle, "Artist - Road Trip")
+        let bare = TrackInfo(title: "Song", artist: "Artist", album: "", artwork: nil, duration: 0, elapsedTime: 0, isPlaying: true, bundleID: nil)
+        XCTAssertEqual(bare.subtitle, "Artist")
+    }
 }

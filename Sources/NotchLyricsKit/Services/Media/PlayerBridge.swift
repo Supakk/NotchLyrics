@@ -53,19 +53,24 @@ final class PlayerBridge {
             for id in candidates {
                 let duration = id == "com.spotify.client" ? "(duration of t) / 1000" : "duration of t"
                 let artwork = id == "com.apple.Music" ? "try\nset art to raw data of artwork 1 of t\nend try" : "set art to artwork url of t"
+                // Music exposes the playlist being played; skip library sources such as "Music".
+                // Spotify's scripting dictionary has no playlist/context, so it stays empty.
+                let playlist = id == "com.apple.Music" ? "try\nif (special kind of current playlist as string) is \"none\" then set pl to name of current playlist\nend try" : ""
                 let modes = id == "com.apple.Music" ? "set shuffleState to shuffle enabled\nset repeatState to song repeat as string" : "set shuffleState to shuffling\nset repeatState to repeating as string"
                 let source = """
                 tell application id "\(id)"
                     if player state is stopped then return {}
                     set t to current track
                     set art to ""
+                    set pl to ""
                     \(artwork)
+                    \(playlist)
                     \(modes)
-                    return {name of t, artist of t, album of t, \(duration), player position, (player state is playing), art, shuffleState, repeatState, sound volume}
+                    return {name of t, artist of t, album of t, \(duration), player position, (player state is playing), art, shuffleState, repeatState, sound volume, pl}
                 end tell
                 """
                 var error: NSDictionary?
-                guard let reply = NSAppleScript(source: source)?.executeAndReturnError(&error), error == nil, reply.numberOfItems == 10 else {
+                guard let reply = NSAppleScript(source: source)?.executeAndReturnError(&error), error == nil, reply.numberOfItems == 11 else {
                     if let error { DispatchQueue.main.async { self.lastError = error.description; NSLog("Player metadata failed: %@", error) } }
                     continue
                 }
@@ -89,7 +94,7 @@ final class PlayerBridge {
                 }
                 self.artworkKeys[id] = key
                 self.cachedArtworks[id] = image
-                let track = TrackInfo(title: reply.atIndex(1)?.stringValue ?? "", artist: reply.atIndex(2)?.stringValue ?? "", album: reply.atIndex(3)?.stringValue ?? "", artwork: image, duration: max(0, reply.atIndex(4)?.doubleValue ?? 0), elapsedTime: max(0, reply.atIndex(5)?.doubleValue ?? 0), isPlaying: reply.atIndex(6)?.booleanValue ?? false, bundleID: id)
+                let track = TrackInfo(title: reply.atIndex(1)?.stringValue ?? "", artist: reply.atIndex(2)?.stringValue ?? "", album: reply.atIndex(3)?.stringValue ?? "", artwork: image, duration: max(0, reply.atIndex(4)?.doubleValue ?? 0), elapsedTime: max(0, reply.atIndex(5)?.doubleValue ?? 0), isPlaying: reply.atIndex(6)?.booleanValue ?? false, bundleID: id, playlist: reply.atIndex(11)?.stringValue ?? "")
                 if selected == nil || track.isPlaying {
                     selected = track
                     shuffle = reply.atIndex(8)?.booleanValue ?? false

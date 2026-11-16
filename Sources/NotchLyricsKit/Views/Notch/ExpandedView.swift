@@ -4,6 +4,9 @@ import SwiftUI
 struct ExpandedView: View {
     let appState: AppState
 
+    /// Time label width (34) + spacing (9) in `ProgressBarView`.
+    static let titleTrailingInset: CGFloat = 43
+
     var body: some View {
         VStack(spacing: 0) {
             // Album artwork and track information
@@ -11,14 +14,18 @@ struct ExpandedView: View {
                 Color.clear.frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(appState.presentationTrack.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // Long titles scroll to the end and back while the player is open.
+                    MarqueeText(
+                        text: appState.presentationTrack.title,
+                        fontSize: 14,
+                        weight: .semibold,
+                        isActive: appState.notchState == .expanded && appState.contentVisible
+                    )
+                    // End the title where the progress track ends (before the remaining-time
+                    // label) instead of running to the edge of the notch.
+                    .padding(.trailing, Self.titleTrailingInset)
 
-                    Text(appState.presentationTrack.artist)
+                    Text(appState.presentationTrack.subtitle)
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)

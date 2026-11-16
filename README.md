@@ -40,7 +40,7 @@ If you have trouble opening `Package.swift`, create a project manually:
 2. Select **macOS → App**.
 3. Product Name: `NotchLyrics`
 4. Interface: **SwiftUI**, Language: **Swift**
-5. Drag the source files from `Sources/NotchLyrics/` into the project.
+5. Drag the source files from `Sources/NotchLyricsKit/` and `Sources/NotchLyrics/main.swift` into the project.
 6. Configure `Info.plist`.
    - Set `LSUIElement` to `YES` to hide the Dock icon.
 7. Build & Run
@@ -77,15 +77,35 @@ After launching the app:
 ## Architecture
 
 ```
-Sources/NotchLyrics/
-├── App/                    # Entry point, AppDelegate, global state
-├── Core/Media/             # MediaRemote bridge, Now Playing engine
-├── Presentation/
-│   ├── Window/             # NSPanel, positioning
-│   ├── Views/              # SwiftUI views (Compact, Expanded, Lyrics)
-│   └── Components/         # Reusable UI components
-└── Utilities/              # HotKey, ColorExtractor
+Sources/
+├── NotchLyrics/              # Executable: main.swift only boots the app
+├── NotchLyricsKit/           # App code (tested by NotchLyricsKitTests)
+│   ├── App/                  # NotchLyricsApplication, AppDelegate, AppState
+│   ├── Models/               # TrackInfo, PlaybackMode, MediaCommand, LyricLine
+│   ├── Services/
+│   │   ├── Media/            # MediaEngine, Apple Music/Spotify bridge, MediaRemote
+│   │   ├── Lyrics/           # LRCLIB lyrics loader
+│   │   └── Input/            # Global hot keys
+│   ├── Views/
+│   │   ├── Notch/            # Notch container, compact and expanded layouts
+│   │   └── Components/       # Controls, progress bar, artwork
+│   ├── Window/               # NSPanel placement and mouse pass-through
+│   └── Utilities/            # Artwork color extraction
+└── NotchLyricsMotionBasic/   # Open basic implementation of NotchLyricsMotion
+Tests/
+└── NotchLyricsKitTests/      # Behavior, playback and lyrics tests
 ```
+
+### NotchLyricsMotion
+
+Notch animation, geometry and control feel come from a `NotchLyricsMotion` module. The tuned
+version is a private package; when it is checked out next to this repository
+(`../NotchLyricsMotion`), `Package.swift` uses it automatically. Without it the app builds
+against `Sources/NotchLyricsMotionBasic`, which has the same API and standard SwiftUI motion,
+so everything works, just less polished. Set `NOTCHLYRICS_BASIC_MOTION=1` to force the basic
+implementation.
+
+Build the app bundle with `scripts/build-app.sh` (writes `dist/NotchLyrics.app`).
 
 ## Roadmap
 

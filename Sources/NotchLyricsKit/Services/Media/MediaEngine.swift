@@ -55,6 +55,25 @@ final class MediaEngine {
         }
     }
 
+    /// Bundle identifier of the app playing the current track.
+    private var playerBundleID: String? { currentTrack.bundleID ?? playerBridge.bundleID }
+
+    /// Display name of the playing app, for accessibility labels.
+    var playerAppName: String? {
+        guard let id = playerBundleID,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return nil }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+
+    /// Bring the app that is playing the current track to the front.
+    func openPlayerApp() {
+        guard let id = playerBundleID,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+    }
+
     func previousTrack() {
         elapsedTime = 0
         if !playerBridge.send(.previousTrack) { bridge.sendCommand(.previousTrack) }

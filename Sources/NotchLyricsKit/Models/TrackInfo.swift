@@ -10,6 +10,8 @@ struct TrackInfo: Equatable {
     var elapsedTime: TimeInterval
     let isPlaying: Bool
     let bundleID: String?
+    /// Playlist the track is playing from, when the player reports one.
+    var playlist: String = ""
 
     static let empty = TrackInfo(
         title: "", artist: "", album: "",
@@ -19,6 +21,12 @@ struct TrackInfo: Equatable {
 
     var hasTrack: Bool { !title.isEmpty }
 
+    /// "Artist - Playlist". Falls back to the album when the player gives no playlist
+    /// (Spotify never does), and to the artist alone when neither is known.
+    var subtitle: String {
+        let source = playlist.isEmpty ? album : playlist
+        return [artist, source].filter { !$0.isEmpty }.joined(separator: " - ")
+    }
 
     /// Compare track identity independently of elapsed time and playback state.
     func isSameTrack(as other: TrackInfo) -> Bool {

@@ -121,14 +121,20 @@ private struct NotchSurface: View, Animatable {
                 .animation(NotchMotion.contentReveal, value: appState.contentVisible)
                 .allowsHitTesting(expanded && appState.contentVisible)
                 .accessibilityHidden(!expanded)
-            AlbumArtView(
-                image: appState.presentationTrack.artwork,
-                size: layout.artwork.width,
-                cornerRadius: artRadius
-            )
+            // In the open player, clicking the artwork brings the playing app to the front.
+            Button { appState.mediaEngine.openPlayerApp() } label: {
+                AlbumArtView(
+                    image: appState.presentationTrack.artwork,
+                    size: layout.artwork.width,
+                    cornerRadius: artRadius
+                )
+            }
+            .buttonStyle(MediaControlStyle(cornerRadius: artRadius))
             .offset(x: layout.artwork.minX, y: layout.artwork.minY)
             .opacity(visible ? 1 : 0)
-            .allowsHitTesting(false)
+            .allowsHitTesting(expanded && appState.contentVisible)
+            .accessibilityHidden(!expanded)
+            .accessibilityLabel("Open \(appState.mediaEngine.playerAppName ?? "music app")")
 
             Button { appState.expand() } label: {
                 Color.clear
