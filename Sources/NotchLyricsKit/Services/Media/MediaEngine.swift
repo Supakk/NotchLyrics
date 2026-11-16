@@ -90,8 +90,10 @@ final class MediaEngine {
             guard let self else { return }
             // Ignore a poll that started before the latest button press; it holds stale state.
             guard generation == self.playerBridge.controlGeneration else { return }
-            let track = track ?? .empty
+            var track = track ?? .empty
             let trackChanged = !track.isSameTrack(as: self.currentTrack)
+            // A poll that briefly lacks the artwork must not swap the cover for the placeholder.
+            if !trackChanged, track.artwork == nil { track.artwork = self.currentTrack.artwork }
 
             if trackChanged || self.currentTrack.artwork !== track.artwork {
                 self.artworkColors = ColorExtractor.gradient(from: track.artwork)

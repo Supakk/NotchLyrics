@@ -17,6 +17,7 @@ final class PlayerBridge {
     var lastError: String?
     private var busy = false
     private var pendingArtworkKey: String?
+    private var failedArtworkKeys: Set<String> = []
     private var artworkKeys: [String: String] = [:]
     private var cachedArtworks: [String: NSImage] = [:]
     private(set) var bundleID: String?
@@ -91,6 +92,13 @@ final class PlayerBridge {
                             self.cachedArtworks[id] = NSImage(data: data)
                         }
                     }.resume()
+                }
+                // Streaming tracks in Music expose no artwork to scripts; look the cover up by
+                // title and artist (cached per track, one request at a time).
+                if image == nil, id == "com.apple.Music", self.pendingArtworkKey != key, !self.failedArtworkKeys.contains(key),
+                   let title = reply.atIndex(1)?.stringValue, let artist = reply.atIndex(2)?.stringValue, !title.isEmpty {
+                    self.pendingArtworkKey = key
+                    self.fetchCatalogArtwork(title: title, artist: artist, id: id, key: key)
                 }
                 self.artworkKeys[id] = key
                 self.cachedArtworks[id] = image
@@ -169,4 +177,45 @@ final class PlayerBridge {
         return true
     }
 
+}
+
+
+extension PlayerBridge {
+    /// Looks a cover up in Apple's public iTunes Search API. Only title and artist are sent.
+    fileprivate func fetchCatalogArtwork(title: String, artist: String, id: String, key: String) {
+        var components = URLComponents(string: "https://itunes.apple.com/search")
+        components?.queryItems = [
+            URLQueryItem(name: "term", value: "\(title) \(artist)"),
+            URLQueryItem(name: "entity", value: "song"),
+            URLQueryItem(name: "limit", value: "5")
+        ]
+        guard let url = components?.url else { pendingArtworkKey = nil; return }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 6
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self else { return }
+            func finish(_ image: NSImage?) {
+                self.queue.async {
+                    if self.pendingArtworkKey == key { self.pendingArtworkKey = nil }
+                    guard let image else { self.failedArtworkKeys.insert(key); return }
+                    guard self.artworkKeys[id] == key else { return }
+                    self.cachedArtworks[id] = image
+                }
+            }
+            guard (response as? HTTPURLResponse)?.statusCode == 200, let data, data.count < 1_000_000,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]] else { return finish(nil) }
+            let match = results.first { ($0["artistName"] as? String)?.localizedCaseInsensitiveContains(artist) == true
+                || artist.localizedCaseInsensitiveContains($0["artistName"] as? String ?? "\u{0}") } ?? results.first
+            guard var address = match?["artworkUrl100"] as? String else { return finish(nil) }
+            address = address.replacingOccurrences(of: "100x100bb", with: "600x600bb")
+            guard let imageURL = URL(string: address), imageURL.scheme == "https", imageURL.host?.hasSuffix("mzstatic.com") == true else { return finish(nil) }
+            var imageRequest = URLRequest(url: imageURL)
+            imageRequest.timeoutInterval = 6
+            URLSession.shared.dataTask(with: imageRequest) { data, response, _ in
+                guard (response as? HTTPURLResponse)?.statusCode == 200, let data, data.count <= 10_000_000 else { return finish(nil) }
+                finish(NSImage(data: data))
+            }.resume()
+        }.resume()
+    }
 }

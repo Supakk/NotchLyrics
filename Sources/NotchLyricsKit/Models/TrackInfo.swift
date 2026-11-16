@@ -5,7 +5,7 @@ struct TrackInfo: Equatable {
     let title: String
     let artist: String
     let album: String
-    let artwork: NSImage?
+    var artwork: NSImage?
     let duration: TimeInterval
     var elapsedTime: TimeInterval
     let isPlaying: Bool
