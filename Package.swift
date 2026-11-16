@@ -6,11 +6,20 @@ let package = Package(
     platforms: [
         .macOS(.v14)
     ],
+    products: [
+        .executable(name: "NotchLyrics", targets: ["NotchLyrics"])
+    ],
     targets: [
+        // Thin executable: only starts the app.
         .executableTarget(
             name: "NotchLyrics",
-            path: "Sources/NotchLyrics"
+            dependencies: ["NotchLyricsKit"]
         ),
-        .testTarget(name: "NotchLyricsTests", dependencies: ["NotchLyrics"])
+        // App logic, views and services.
+        .target(name: "NotchLyricsKit"),
+        .testTarget(
+            name: "NotchLyricsKitTests",
+            dependencies: ["NotchLyricsKit"]
+        )
     ]
 )

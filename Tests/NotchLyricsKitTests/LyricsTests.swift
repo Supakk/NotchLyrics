@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import NotchLyrics
+@testable import NotchLyricsKit
 
 final class LyricsTests: XCTestCase {
     func testArtworkAndFrameShareOneTransitionRoute() {

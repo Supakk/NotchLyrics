@@ -1,8 +1,8 @@
 import AppKit
 
-@main
-struct NotchLyricsApp {
-    static func main() {
+/// Entry point used by the `NotchLyrics` executable.
+public enum NotchLyricsApplication {
+    public static func run() {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
