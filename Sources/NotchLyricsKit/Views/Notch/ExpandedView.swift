@@ -15,16 +15,17 @@ struct ExpandedView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text(appState.presentationTrack.artist)
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)
-
-
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 20)
             .padding(.top, appState.notchHeight + 6)

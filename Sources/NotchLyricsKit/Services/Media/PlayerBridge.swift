@@ -4,8 +4,12 @@ import AppKit
 @Observable
 final class PlayerBridge {
     private let queue = DispatchQueue(label: "NotchLyrics.player")
+    /// Commands get their own queue so a slow metadata poll never delays a button press.
+    private let commandQueue = DispatchQueue(label: "NotchLyrics.player.commands")
+    private var queuedRefresh: ((TrackInfo?) -> Void)?
     var shuffled = false
     var repeatMode = "off"
+    var isMuted = false
     var selectedSource: String {
         get { UserDefaults.standard.string(forKey: "musicSource") ?? "automatic" }
         set { UserDefaults.standard.set(newValue, forKey: "musicSource") }
@@ -16,22 +20,36 @@ final class PlayerBridge {
     private var artworkKeys: [String: String] = [:]
     private var cachedArtworks: [String: NSImage] = [:]
     private(set) var bundleID: String?
+    private var previousVolume = 100
+    /// Bumped on every user control so an in-flight poll can't revert optimistic UI state.
+    private(set) var controlGeneration = 0
 
     static func orderedPlayers(running: [String], preferred: String?) -> [String] {
         let supported = ["com.apple.Music", "com.spotify.client"]
         return supported.filter { running.contains($0) }.sorted { ($0 == preferred ? 0 : 1) < ($1 == preferred ? 0 : 1) }
     }
 
+    static func playbackMode(shuffled: Bool, repeatMode: String) -> PlaybackMode {
+        if shuffled { return .shuffle }
+        return ["one", "true"].contains(repeatMode.lowercased()) ? .repeatOne : .sequential
+    }
+
+    var playbackMode: PlaybackMode { Self.playbackMode(shuffled: shuffled, repeatMode: repeatMode) }
+
     func refresh(completion: @escaping (TrackInfo?) -> Void) {
-        guard !busy else { return }
+        // Remember the latest request instead of dropping it, so a refresh asked for
+        // right after a button press runs as soon as the current poll finishes.
+        guard !busy else { queuedRefresh = completion; return }
         let running = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)
         let candidates = Self.orderedPlayers(running: running, preferred: bundleID).filter { selectedSource == "automatic" || $0 == selectedSource }
         guard !candidates.isEmpty else { completion(nil); return }
         busy = true
+        let generation = controlGeneration
         queue.async {
             var selected: TrackInfo?
             var shuffle = false
             var repeatState = "off"
+            var selectedVolume = 0
             for id in candidates {
                 let duration = id == "com.spotify.client" ? "(duration of t) / 1000" : "duration of t"
                 let artwork = id == "com.apple.Music" ? "try\nset art to raw data of artwork 1 of t\nend try" : "set art to artwork url of t"
@@ -43,11 +61,11 @@ final class PlayerBridge {
                     set art to ""
                     \(artwork)
                     \(modes)
-                    return {name of t, artist of t, album of t, \(duration), player position, (player state is playing), art, shuffleState, repeatState}
+                    return {name of t, artist of t, album of t, \(duration), player position, (player state is playing), art, shuffleState, repeatState, sound volume}
                 end tell
                 """
                 var error: NSDictionary?
-                guard let reply = NSAppleScript(source: source)?.executeAndReturnError(&error), error == nil, reply.numberOfItems == 9 else {
+                guard let reply = NSAppleScript(source: source)?.executeAndReturnError(&error), error == nil, reply.numberOfItems == 10 else {
                     if let error { DispatchQueue.main.async { self.lastError = error.description; NSLog("Player metadata failed: %@", error) } }
                     continue
                 }
@@ -76,26 +94,39 @@ final class PlayerBridge {
                     selected = track
                     shuffle = reply.atIndex(8)?.booleanValue ?? false
                     repeatState = reply.atIndex(9)?.stringValue ?? "off"
+                    selectedVolume = Int(reply.atIndex(10)?.int32Value ?? 0)
                 }
                 if track.isPlaying { break }
             }
             DispatchQueue.main.async {
-                self.shuffled = shuffle
-                self.repeatMode = repeatState
+                // A control was sent while this poll was running; its reply predates the change.
+                if generation == self.controlGeneration {
+                    self.shuffled = shuffle
+                    self.repeatMode = repeatState
+                    if selectedVolume > 0 { self.previousVolume = selectedVolume }
+                    self.isMuted = selected != nil && selectedVolume == 0
+                }
                 self.busy = false
                 self.bundleID = selected?.bundleID
                 completion(selected)
+                if let next = self.queuedRefresh {
+                    self.queuedRefresh = nil
+                    self.refresh(completion: next)
+                }
             }
         }
     }
 
     func send(_ command: MediaCommand) -> Bool {
         guard let id = bundleID else { return false }
+        controlGeneration &+= 1
         let action: String
         switch command {
         case .togglePlayPause: action = "playpause"
         case .nextTrack: action = "next track"
-        case .previousTrack: action = "previous track"
+        case .previousTrack:
+            // With no earlier track the player may stay put; restart the current one instead.
+            action = "set currentName to name of current track\nprevious track\ndelay 0.4\nif (name of current track) is currentName then set player position to 0"
         case .play: action = "play"
         case .pause: action = "pause"
         case .stop: action = "stop"
@@ -103,12 +134,34 @@ final class PlayerBridge {
             action = id == "com.spotify.client" ? "set shuffling to not shuffling" : "set shuffle enabled to not shuffle enabled"
         case .advanceRepeat:
             action = id == "com.spotify.client" ? "set repeating to not repeating" : "if song repeat is off then\nset song repeat to all\nelse\nset song repeat to off\nend if"
+        case .toggleMute:
+            let targetMuted = !isMuted
+            action = "set sound volume to \(targetMuted ? 0 : previousVolume)"
+            isMuted = targetMuted
+        case .advancePlaybackMode:
+            let nextMode = playbackMode.next
+            if id == "com.spotify.client" {
+                switch nextMode {
+                case .shuffle: action = "set repeating to false\nset shuffling to true"
+                case .sequential: action = "set shuffling to false\nset repeating to false"
+                case .repeatOne: action = "set shuffling to false\nset repeating to true"
+                }
+            } else {
+                switch nextMode {
+                case .shuffle: action = "set song repeat to off\nset shuffle enabled to true"
+                case .sequential: action = "set shuffle enabled to false\nset song repeat to off"
+                case .repeatOne: action = "set shuffle enabled to false\nset song repeat to one"
+                }
+            }
+            shuffled = nextMode == .shuffle
+            repeatMode = nextMode == .repeatOne ? (id == "com.spotify.client" ? "true" : "one") : "off"
         }
-        queue.async {
+        commandQueue.async {
             var error: NSDictionary?
             NSAppleScript(source: "tell application id \"\(id)\"\n\(action)\nend tell")?.executeAndReturnError(&error)
             if let error { NSLog("Player control failed: %@", error) }
         }
         return true
     }
+
 }

@@ -1,24 +1,36 @@
 import SwiftUI
 
-/// Shuffle, previous track, play or pause, next track, and repeat controls.
+/// Shuffle, previous track, play or pause, next track, and mute controls.
 struct PlaybackControlsView: View {
     let appState: AppState
 
+    // Tap counters drive one-shot symbol bounces.
+    @State private var modeTaps = 0
+    @State private var previousTaps = 0
+    @State private var nextTaps = 0
+    @State private var playTaps = 0
+    @State private var muteTaps = 0
+
+    private var bridge: PlayerBridge { appState.mediaEngine.playerBridge }
+
     var body: some View {
         HStack(spacing: 0) {
-            // Shuffle
+            // Shuffle → play in order → repeat current track
             controlButton(
-                icon: "shuffle",
+                icon: playbackModeIcon,
                 size: 13,
-                opacity: appState.mediaEngine.playerBridge.shuffled ? 1 : 0.4
+                opacity: 1,
+                trigger: modeTaps,
+                accessibilityLabel: playbackModeLabel
             ) {
-                appState.mediaEngine.playerBridge.send(.advanceShuffle)
+                modeTaps += 1
+                withAnimation(Self.iconSwap) { _ = bridge.send(.advancePlaybackMode) }
             }
 
             Spacer()
 
-            // Previous
-            controlButton(icon: "backward.fill", size: 16) {
+            controlButton(icon: "backward.fill", size: 16, trigger: previousTaps, accessibilityLabel: "Previous track") {
+                previousTaps += 1
                 appState.mediaEngine.previousTrack()
             }
 
@@ -26,57 +38,73 @@ struct PlaybackControlsView: View {
 
             // Large central play or pause button
             Button {
-                appState.mediaEngine.togglePlayPause()
+                playTaps += 1
+                withAnimation(Self.iconSwap) { appState.mediaEngine.togglePlayPause() }
             } label: {
-                ZStack {
-                    Circle()
-                        .fill(.white)
-                        .frame(width: 38, height: 38)
-
-                    Image(systemName: appState.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.black)
-                        // Shift the play symbol slightly to the right to center it visually.
-                        .offset(x: appState.isPlaying ? 0 : 1.5)
-                }
+                SwappingSymbol(name: appState.isPlaying ? "pause.fill" : "play.fill", size: 15, weight: .bold)
+                    .offset(x: appState.isPlaying ? 0 : 1.5)
+                    .animation(Self.iconSwap, value: appState.isPlaying)
             }
-            .buttonStyle(.plain)
+            // No black fill behind it: the notch is already black, and a SwiftUI fill can be
+            // composited on top of the glyph, hiding the play/pause icon.
+            .buttonStyle(MediaControlStyle(playbackControl: true))
+            .accessibilityLabel(appState.isPlaying ? "Pause" : "Play")
 
             Spacer()
 
-            // Next
-            controlButton(icon: "forward.fill", size: 16) {
+            controlButton(icon: "forward.fill", size: 16, trigger: nextTaps, accessibilityLabel: "Next track") {
+                nextTaps += 1
                 appState.mediaEngine.nextTrack()
             }
 
             Spacer()
 
-            // Repeat
             controlButton(
-                icon: appState.mediaEngine.playerBridge.repeatMode == "one" ? "repeat.1" : "repeat",
+                icon: bridge.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                 size: 13,
-                opacity: ["off", "false"].contains(appState.mediaEngine.playerBridge.repeatMode) ? 0.4 : 1
+                trigger: muteTaps,
+                accessibilityLabel: bridge.isMuted ? "Unmute" : "Mute"
             ) {
-                appState.mediaEngine.playerBridge.send(.advanceRepeat)
+                muteTaps += 1
+                withAnimation(Self.iconSwap) { _ = bridge.send(.toggleMute) }
             }
         }
         .padding(.horizontal, 24)
+    }
+
+    /// Animation used when a control's symbol changes.
+    static var iconSwap: Animation { NotchMotion.iconSwap }
+
+    /// Same symbols Apple Music and Spotify use for these states.
+    private var playbackModeIcon: String {
+        switch bridge.playbackMode {
+        case .shuffle: "shuffle"
+        case .sequential: "repeat"
+        case .repeatOne: "repeat.1"
+        }
+    }
+
+    private var playbackModeLabel: String {
+        switch bridge.playbackMode {
+        case .shuffle: "Shuffle"
+        case .sequential: "Play in order"
+        case .repeatOne: "Repeat current track"
+        }
     }
 
     @ViewBuilder
     private func controlButton(
         icon: String,
         size: CGFloat,
-        opacity: Double = 0.8,
+        opacity: Double = 0.85,
+        trigger: Int,
+        accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: size, weight: .semibold))
-                .foregroundStyle(.white.opacity(opacity))
-                .frame(width: 32, height: 32)
-                .contentShape(Rectangle())
+            SwappingSymbol(name: icon, size: size, weight: .semibold, opacity: opacity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MediaControlStyle(playbackControl: true))
+        .accessibilityLabel(accessibilityLabel)
     }
 }

@@ -56,7 +56,7 @@ struct LockLyricsView: View {
                         AlbumArtView(image: state.currentTrack.artwork, size: 180)
                     }
                 }.frame(width: 300, height: 220).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel("Switch artwork and lyrics")
+            }.buttonStyle(MediaControlStyle()).accessibilityLabel("Switch artwork and lyrics")
             Text(state.currentTrack.title).font(.headline)
             Text(state.currentTrack.artist).foregroundStyle(.secondary)
         }.foregroundStyle(.white).padding(20).background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 24))

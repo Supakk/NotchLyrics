@@ -9,6 +9,7 @@ final class MediaEngine {
     // MARK: - Published state
     var currentTrack: TrackInfo = .empty
     var isPlaying: Bool = false
+    var hasLoadedPlaybackState = false
     var elapsedTime: TimeInterval = 0
     var artworkColors: [Color] = [.purple, .pink]
 
@@ -38,9 +39,11 @@ final class MediaEngine {
     // MARK: - Controls
 
     func togglePlayPause() {
+        // Update the UI immediately; the next refresh confirms the real player state.
+        isPlaying.toggle()
+        if isPlaying { startElapsedTimer() } else { stopElapsedTimer() }
         if !playerBridge.send(.togglePlayPause) { bridge.sendCommand(.togglePlayPause) }
-        // Allow time for the player to update before refreshing.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.refreshNowPlaying()
         }
     }
@@ -53,8 +56,9 @@ final class MediaEngine {
     }
 
     func previousTrack() {
+        elapsedTime = 0
         if !playerBridge.send(.previousTrack) { bridge.sendCommand(.previousTrack) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             self?.refreshNowPlaying()
         }
     }
@@ -62,8 +66,11 @@ final class MediaEngine {
     // MARK: - Refresh
 
     func refreshNowPlaying() {
+        let generation = playerBridge.controlGeneration
         playerBridge.refresh { [weak self] track in
             guard let self else { return }
+            // Ignore a poll that started before the latest button press; it holds stale state.
+            guard generation == self.playerBridge.controlGeneration else { return }
             let track = track ?? .empty
             let trackChanged = !track.isSameTrack(as: self.currentTrack)
 
@@ -73,6 +80,7 @@ final class MediaEngine {
             self.currentTrack = track
             self.isPlaying = track.isPlaying
             self.elapsedTime = track.elapsedTime
+            self.hasLoadedPlaybackState = true
 
             if track.isPlaying {
                 self.startElapsedTimer()
