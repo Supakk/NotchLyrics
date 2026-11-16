@@ -21,11 +21,9 @@ struct TrackInfo: Equatable {
 
     var hasTrack: Bool { !title.isEmpty }
 
-    /// "Artist - Playlist". Falls back to the album when the player gives no playlist
-    /// (Spotify never does), and to the artist alone when neither is known.
+    /// "Artist - Playlist"; just the artist when the track is not playing from a playlist.
     var subtitle: String {
-        let source = playlist.isEmpty ? album : playlist
-        return [artist, source].filter { !$0.isEmpty }.joined(separator: " - ")
+        [artist, playlist].filter { !$0.isEmpty }.joined(separator: " - ")
     }
 
     /// Compare track identity independently of elapsed time and playback state.
