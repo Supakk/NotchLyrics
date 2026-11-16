@@ -17,7 +17,10 @@ struct NotchContainerView: View {
         return CGSize(width: size.width + 4 * radius, height: size.height)
     }
     var body: some View {
-        NotchSurface(appState: appState, expansion: expanded ? 1 : 0, notchPressed: $notchPressed)
+        // `reveal` widens the notch out of the camera housing when playback appears.
+        NotchSurface(appState: appState, expansion: expanded ? 1 : 0,
+                     reveal: !appState.isTucked && appState.currentTrack.hasTrack ? 1 : 0,
+                     notchPressed: $notchPressed)
         // Keep the camera edge fixed; scale artwork, mask and progress together. Scope the
         // animation to the scale so it cannot replace the frame's own animation.
         .animation(reduceMotion ? nil : NotchMotion.hover(active: appState.compactHoverActive)) { content in
@@ -62,21 +65,31 @@ struct NotchContainerView: View {
         .onChange(of: appState.currentTrack.hasTrack) { _, hasTrack in
             notifyInputRegion()
             guard appState.mediaEngine.hasLoadedPlaybackState else { return }
-            appState.updatePlaybackVisibility(hasTrack: hasTrack)
+            appState.updatePlaybackVisibility(hasTrack: hasTrack, isPlaying: appState.isPlaying)
         }
+        .onChange(of: appState.isPlaying) { _, _ in refreshPlaybackVisibility() }
+        .onChange(of: appState.notchState) { _, _ in refreshPlaybackVisibility() }
+        .onChange(of: appState.isHovering) { _, _ in refreshPlaybackVisibility() }
         .onChange(of: appState.mediaEngine.hasLoadedPlaybackState, initial: true) { _, loaded in
             guard loaded else { return }
-            appState.updatePlaybackVisibility(hasTrack: appState.currentTrack.hasTrack)
+            refreshPlaybackVisibility()
         }
         .frame(width: NotchWindowController.canvas.width, height: NotchWindowController.canvas.height, alignment: .top)
-        .animation(reduceMotion ? nil : NotchMotion.tuck) { content in
+        // With a camera housing the surface shrinks into it; without one, also clip it away.
+        .animation(reduceMotion ? nil : (appState.isTucked ? NotchMotion.tuck : NotchMotion.untuck)) { content in
             content.mask {
+                let hide = appState.isTucked && !appState.hasPhysicalNotch
                 Rectangle()
-                    .frame(width: appState.isTucked ? max(0, appState.cameraWidth - 12) : NotchWindowController.canvas.width,
-                           height: appState.isTucked ? 0 : NotchWindowController.canvas.height)
+                    .frame(width: hide ? max(0, appState.cameraWidth - 12) : NotchWindowController.canvas.width,
+                           height: hide ? 0 : NotchWindowController.canvas.height)
                     .frame(maxHeight: .infinity, alignment: .top)
             }
         }
+    }
+
+    private func refreshPlaybackVisibility() {
+        guard appState.mediaEngine.hasLoadedPlaybackState else { return }
+        appState.updatePlaybackVisibility(hasTrack: appState.currentTrack.hasTrack, isPlaying: appState.isPlaying)
     }
 
     private func notifyInputRegion() { NotificationCenter.default.post(name: .notchStateDidChange, object: nil) }
@@ -87,19 +100,30 @@ struct NotchContainerView: View {
 private struct NotchSurface: View, Animatable {
     let appState: AppState
     var expansion: CGFloat
+    /// 0 = tucked into the camera housing, 1 = live activity shown.
+    var reveal: CGFloat
     @Binding var notchPressed: Bool
-    var animatableData: CGFloat {
-        get { expansion }
-        set { expansion = newValue }
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(expansion, reveal) }
+        set { expansion = newValue.first; reveal = newValue.second }
     }
 
     var body: some View {
-        let visible = !appState.isTucked && appState.currentTrack.hasTrack
+        let reveal = min(max(self.reveal, 0), 1)
+        let hasTrack = appState.currentTrack.hasTrack
+        let visible = hasTrack && reveal > 0.99 && !appState.isTucked
+        let contentOpacity = hasTrack ? Double(reveal) : 0
         let expanded = appState.notchState == .expanded
         let compactArtwork = NotchGeometry.compactArtwork(hasPhysicalNotch: appState.hasPhysicalNotch)
-        let compactRadii = AppState.cornerRadii(hasActivity: visible, expanded: false, hasPhysicalNotch: appState.hasPhysicalNotch, notchHeight: appState.notchHeight)
-        let expandedRadii = AppState.cornerRadii(hasActivity: visible, expanded: true, hasPhysicalNotch: appState.hasPhysicalNotch, notchHeight: appState.notchHeight)
-        let layout = NotchTransitionLayout(compact: appState.compactSize, expanded: appState.expandedSize, compactArtwork: compactArtwork.size, compactLeading: compactArtwork.leading, progress: expansion)
+        let mix = { (a: CGFloat, b: CGFloat) -> CGFloat in a + (b - a) * reveal }
+        let tucked = AppState.compactSize(cameraWidth: appState.cameraWidth, topInset: appState.notchHeight, hasActivity: false, hasPhysicalNotch: appState.hasPhysicalNotch)
+        let active = AppState.compactSize(cameraWidth: appState.cameraWidth, topInset: appState.notchHeight, hasActivity: true, hasPhysicalNotch: appState.hasPhysicalNotch)
+        let compactSize = CGSize(width: mix(tucked.width, active.width), height: mix(tucked.height, active.height))
+        let tuckedRadii = AppState.cornerRadii(hasActivity: false, expanded: false, hasPhysicalNotch: appState.hasPhysicalNotch, notchHeight: appState.notchHeight)
+        let activeRadii = AppState.cornerRadii(hasActivity: true, expanded: false, hasPhysicalNotch: appState.hasPhysicalNotch, notchHeight: appState.notchHeight)
+        let compactRadii = (top: mix(tuckedRadii.top, activeRadii.top), bottom: mix(tuckedRadii.bottom, activeRadii.bottom))
+        let expandedRadii = AppState.cornerRadii(hasActivity: hasTrack, expanded: true, hasPhysicalNotch: appState.hasPhysicalNotch, notchHeight: appState.notchHeight)
+        let layout = NotchTransitionLayout(compact: compactSize, expanded: appState.expandedSize, compactArtwork: compactArtwork.size, compactLeading: compactArtwork.leading, progress: expansion)
         let shape = NotchShape(topRadius: layout.interpolate(compactRadii.top, expandedRadii.top), bottomRadius: layout.interpolate(compactRadii.bottom, expandedRadii.bottom))
         let cornerMask = NotchCornerMask(compact: compactRadii, expanded: expandedRadii, progress: layout.progress)
         let artRadius = layout.interpolate(
@@ -109,7 +133,7 @@ private struct NotchSurface: View, Animatable {
         ZStack(alignment: .topLeading) {
             CompactView(appState: appState)
                 .frame(width: layout.size.width, height: appState.notchHeight)
-                .opacity(visible ? NotchMotion.compactContentOpacity(progress: layout.progress) : 0)
+                .opacity(contentOpacity * NotchMotion.compactContentOpacity(progress: layout.progress))
                 .allowsHitTesting(false)
                 .accessibilityHidden(expanded || !visible)
             ExpandedView(appState: appState)
@@ -131,7 +155,7 @@ private struct NotchSurface: View, Animatable {
             }
             .buttonStyle(MediaControlStyle(cornerRadius: artRadius))
             .offset(x: layout.artwork.minX, y: layout.artwork.minY)
-            .opacity(visible ? 1 : 0)
+            .opacity(contentOpacity)
             .allowsHitTesting(expanded && appState.contentVisible)
             .accessibilityHidden(!expanded)
             .accessibilityLabel("Open \(appState.mediaEngine.playerAppName ?? "music app")")

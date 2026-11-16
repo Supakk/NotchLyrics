@@ -5,6 +5,8 @@ final class PlaybackTests: XCTestCase {
     func testPausedPlayerKeepsSelection() {
         XCTAssertFalse(AppState.shouldTuck(hasTrack: true))
         XCTAssertTrue(AppState.shouldTuck(hasTrack: false))
+        XCTAssertFalse(AppState.shouldTuck(hasTrack: true, isPlaying: false))
+        XCTAssertTrue(AppState.shouldTuck(hasTrack: true, isPlaying: false, pausedLongEnough: true))
         XCTAssertEqual(PlayerBridge.orderedPlayers(running: ["com.apple.Music", "com.spotify.client"], preferred: "com.spotify.client").first, "com.spotify.client")
         XCTAssertEqual(PlayerBridge.orderedPlayers(running: ["com.apple.Music"], preferred: "com.spotify.client"), ["com.apple.Music"])
     }

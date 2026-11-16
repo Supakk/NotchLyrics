@@ -127,15 +127,27 @@ final class AppState {
         withAnimation(NotchMotion.tuck) { isTucked = true }
     }
 
-    static func shouldTuck(hasTrack: Bool) -> Bool { !hasTrack }
+    /// Hide behind the camera when nothing is queued, or once playback has been paused for a while.
+    static func shouldTuck(hasTrack: Bool, isPlaying: Bool = true, pausedLongEnough: Bool = false) -> Bool {
+        !hasTrack || (!isPlaying && pausedLongEnough)
+    }
 
-    func updatePlaybackVisibility(hasTrack: Bool) {
-        if !Self.shouldTuck(hasTrack: hasTrack) {
-            withAnimation(NotchMotion.tuck) {
-                isTucked = false
-            }
-        } else {
+    private var pauseTask: Task<Void, Never>?
+
+    func updatePlaybackVisibility(hasTrack: Bool, isPlaying: Bool = true) {
+        pauseTask?.cancel()
+        if Self.shouldTuck(hasTrack: hasTrack) {
             tuck()
+        } else if isPlaying {
+            withAnimation(NotchMotion.untuck) { isTucked = false }
+        } else if !isTucked {
+            // Paused: keep the player a few seconds so it can be resumed, then tuck away.
+            pauseTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(4))
+                guard let self, !Task.isCancelled, !self.isPlaying, !self.isHovering,
+                      self.notchState == .compact else { return }
+                self.tuck()
+            }
         }
     }
 

@@ -14,6 +14,7 @@ public enum NotchMotion {
     public static let hiddenContentBlur: CGFloat = 0
 
     public static let tuck = Animation.smooth(duration: 0.3)
+    public static let untuck = Animation.smooth(duration: 0.6)
 
     public static func hover(active: Bool) -> Animation { .smooth(duration: 0.25) }
     public static let hoverScale = CGSize(width: 1.05, height: 1.1)
