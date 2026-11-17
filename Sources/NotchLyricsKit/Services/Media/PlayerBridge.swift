@@ -20,6 +20,19 @@ final class PlayerBridge {
     private var failedArtworkKeys: Set<String> = []
     private var artworkKeys: [String: String] = [:]
     private var cachedArtworks: [String: NSImage] = [:]
+    /// Covers already seen, so a repeated track shows its cover immediately.
+    private var artworkStore: [String: NSImage] = [:]
+    private var artworkOrder: [String] = []
+    /// Called on the main queue when a cover finishes loading, so the UI need not wait for the next poll.
+    var onArtworkReady: (() -> Void)?
+
+    private func remember(_ image: NSImage, for key: String) {
+        artworkStore[key] = image
+        artworkOrder.removeAll { $0 == key }
+        artworkOrder.append(key)
+        if artworkOrder.count > 40 { artworkStore[artworkOrder.removeFirst()] = nil }
+        DispatchQueue.main.async { self.onArtworkReady?() }
+    }
     private(set) var bundleID: String?
     private var previousVolume = 100
     /// Bumped on every user control so an in-flight poll can't revert optimistic UI state.
@@ -76,7 +89,7 @@ final class PlayerBridge {
                     continue
                 }
                 let key = id + "|" + (reply.atIndex(1)?.stringValue ?? "") + "|" + (reply.atIndex(3)?.stringValue ?? "")
-                var image = key == self.artworkKeys[id] ? self.cachedArtworks[id] : nil
+                var image = self.artworkStore[key] ?? (key == self.artworkKeys[id] ? self.cachedArtworks[id] : nil)
                 if image == nil, id == "com.apple.Music", let data = reply.atIndex(7)?.data { image = NSImage(data: data) }
                 if image == nil, id == "com.spotify.client", self.pendingArtworkKey != key,
                    let address = reply.atIndex(7)?.stringValue, let url = URL(string: address), url.scheme == "https" {
@@ -87,9 +100,10 @@ final class PlayerBridge {
                         guard let self else { return }
                         self.queue.async {
                             if self.pendingArtworkKey == key { self.pendingArtworkKey = nil }
-                            guard self.artworkKeys[id] == key, let data, data.count <= 10_000_000,
-                                  (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-                            self.cachedArtworks[id] = NSImage(data: data)
+                            guard let data, data.count <= 10_000_000,
+                                  (response as? HTTPURLResponse)?.statusCode == 200, let image = NSImage(data: data) else { return }
+                            self.remember(image, for: key)
+                            if self.artworkKeys[id] == key { self.cachedArtworks[id] = image }
                         }
                     }.resume()
                 }
@@ -181,6 +195,19 @@ final class PlayerBridge {
 
 
 extension PlayerBridge {
+    /// Starts the cover lookup for a Music track announced by its notification, before the
+    /// metadata poll has even run. The key matches the one a poll builds for the same track.
+    func prefetchCatalogArtwork(title: String, artist: String, album: String) {
+        let id = "com.apple.Music"
+        let key = id + "|" + title + "|" + album
+        queue.async {
+            guard !title.isEmpty, self.artworkStore[key] == nil, self.pendingArtworkKey != key,
+                  !self.failedArtworkKeys.contains(key) else { return }
+            self.pendingArtworkKey = key
+            self.fetchCatalogArtwork(title: title, artist: artist, id: id, key: key)
+        }
+    }
+
     /// Looks a cover up in Apple's public iTunes Search API. Only title and artist are sent.
     fileprivate func fetchCatalogArtwork(title: String, artist: String, id: String, key: String) {
         var components = URLComponents(string: "https://itunes.apple.com/search")
@@ -198,8 +225,8 @@ extension PlayerBridge {
                 self.queue.async {
                     if self.pendingArtworkKey == key { self.pendingArtworkKey = nil }
                     guard let image else { self.failedArtworkKeys.insert(key); return }
-                    guard self.artworkKeys[id] == key else { return }
-                    self.cachedArtworks[id] = image
+                    self.remember(image, for: key)
+                    if self.artworkKeys[id] == key { self.cachedArtworks[id] = image }
                 }
             }
             guard (response as? HTTPURLResponse)?.statusCode == 200, let data, data.count < 1_000_000,

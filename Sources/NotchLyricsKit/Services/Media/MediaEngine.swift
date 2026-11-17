@@ -10,7 +10,18 @@ final class MediaEngine {
     var currentTrack: TrackInfo = .empty
     var isPlaying: Bool = false
     var hasLoadedPlaybackState = false
-    var elapsedTime: TimeInterval = 0
+    var elapsedTime: TimeInterval = 0 {
+        didSet { elapsedTimeUpdatedAt = Date() }
+    }
+    /// When `elapsedTime` was last set, so views can interpolate between the 0.5 s ticks.
+    private(set) var elapsedTimeUpdatedAt = Date()
+
+    /// Playback position at `date`, advancing smoothly between updates while playing.
+    func playbackTime(at date: Date) -> TimeInterval {
+        guard isPlaying else { return elapsedTime }
+        let drift = min(max(date.timeIntervalSince(elapsedTimeUpdatedAt), 0), 1)
+        return min(elapsedTime + drift, max(currentTrack.duration, elapsedTime))
+    }
     var artworkColors: [Color] = ArtworkPalette.fallback
 
     // MARK: - Callbacks
@@ -22,6 +33,7 @@ final class MediaEngine {
     private let bridge = MediaRemoteBridge.shared
     private var elapsedTimer: Timer?
     private var observers: [NSObjectProtocol] = []
+    private var coverCarryUntil: Date?
 
     init() {
         setupNotifications()
@@ -30,10 +42,19 @@ final class MediaEngine {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshNowPlaying() }
     }
 
+    private var updatesStopped = false
+
+    /// Stops refreshing from the player (previews use fixed data).
+    func stopUpdates() {
+        updatesStopped = true
+        pollTimer?.invalidate()
+        pollTimer = nil
+    }
+
     deinit {
         pollTimer?.invalidate()
         elapsedTimer?.invalidate()
-        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers.forEach { NotificationCenter.default.removeObserver($0); DistributedNotificationCenter.default().removeObserver($0) }
     }
 
     // MARK: - Controls
@@ -85,6 +106,7 @@ final class MediaEngine {
     // MARK: - Refresh
 
     func refreshNowPlaying() {
+        guard !updatesStopped else { return }
         let generation = playerBridge.controlGeneration
         playerBridge.refresh { [weak self] track in
             guard let self else { return }
@@ -92,8 +114,20 @@ final class MediaEngine {
             guard generation == self.playerBridge.controlGeneration else { return }
             var track = track ?? .empty
             let trackChanged = !track.isSameTrack(as: self.currentTrack)
-            // A poll that briefly lacks the artwork must not swap the cover for the placeholder.
-            if !trackChanged, track.artwork == nil { track.artwork = self.currentTrack.artwork }
+            // Never flash the placeholder: while the new cover loads, keep showing the previous
+            // one, for a few seconds at most (a track may genuinely have no cover).
+            if track.artwork == nil, track.hasTrack {
+                if trackChanged, self.currentTrack.hasTrack {
+                    self.coverCarryUntil = Date().addingTimeInterval(4)
+                    track.artwork = self.currentTrack.artwork
+                } else if let until = self.coverCarryUntil, Date() < until {
+                    track.artwork = self.currentTrack.artwork
+                } else if self.coverCarryUntil == nil {
+                    // A poll that briefly lacks the cover must not swap it for the placeholder.
+                    track.artwork = self.currentTrack.artwork
+                }
+            }
+            if track.artwork != nil, track.artwork !== self.currentTrack.artwork { self.coverCarryUntil = nil }
 
             if trackChanged || self.currentTrack.artwork !== track.artwork {
                 self.artworkColors = ColorExtractor.gradient(from: track.artwork)
@@ -151,6 +185,21 @@ final class MediaEngine {
             }
             observers.append(obs)
         }
+
+        // The players announce track changes themselves; react at once instead of waiting
+        // for the next poll.
+        let distributed = DistributedNotificationCenter.default()
+        for name in ["com.apple.Music.playerInfo", "com.spotify.client.PlaybackStateChanged"] {
+            observers.append(distributed.addObserver(forName: Notification.Name(name), object: nil, queue: .main) { [weak self] note in
+                // Music names the new track in the notification: start fetching its cover now.
+                if name.hasPrefix("com.apple.Music"), let info = note.userInfo,
+                   let title = info["Name"] as? String, let artist = info["Artist"] as? String {
+                    self?.playerBridge.prefetchCatalogArtwork(title: title, artist: artist, album: info["Album"] as? String ?? "")
+                }
+                self?.refreshNowPlaying()
+            })
+        }
+        playerBridge.onArtworkReady = { [weak self] in self?.refreshNowPlaying() }
 
         // Wake from sleep → refresh
         let wakeObs = NSWorkspace.shared.notificationCenter.addObserver(

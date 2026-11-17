@@ -2,8 +2,8 @@ import AppKit
 
 /// Information about the current track.
 struct TrackInfo: Equatable {
-    let title: String
-    let artist: String
+    var title: String
+    var artist: String
     let album: String
     var artwork: NSImage?
     let duration: TimeInterval
