@@ -2,14 +2,27 @@ import SwiftUI
 
 struct CompactView: View {
     let appState: AppState
+    static var morph: Animation { NotchMotion.playbackSymbolMorph }
+    static var swap: AnyTransition { NotchMotion.playbackSymbolSwap }
 
     var body: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 35)
             Spacer(minLength: 0)
-            CompactWaveform(isPlaying: appState.isPlaying, colors: appState.presentationColors)
-                .frame(width: 20).padding(.trailing, appState.hasPhysicalNotch ? 7.5 : 7)
-                .frame(width: 35, alignment: .trailing)
+            // Waveform normally; right after a click it shows the play or pause symbol.
+            ZStack {
+                if let symbol = appState.compactRightSymbol {
+                    SwappingSymbol(name: symbol, size: 12, weight: .bold)
+                        .transition(Self.swap)
+                } else {
+                    CompactWaveform(isPlaying: appState.isPlaying, colors: appState.presentationColors)
+                        .transition(Self.swap)
+                }
+            }
+            // The notch surface turns animations off for its content; this one opts back in.
+            .animation(Self.morph, value: appState.compactRightSymbol)
+            .frame(width: 20).padding(.trailing, appState.hasPhysicalNotch ? 7.5 : 7)
+            .frame(width: 35, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .bottom) {

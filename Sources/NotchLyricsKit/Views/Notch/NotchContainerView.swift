@@ -23,11 +23,11 @@ struct NotchContainerView: View {
                      notchPressed: $notchPressed)
         // Keep the camera edge fixed; scale artwork, mask and progress together. Scope the
         // animation to the scale so it cannot replace the frame's own animation.
-        .animation(reduceMotion ? nil : NotchMotion.hover(active: appState.compactHoverActive)) { content in
-            content.scaleEffect(x: appState.compactHoverActive && !reduceMotion ? AppState.compactHoverScale.width : 1, y: appState.compactHoverActive && !reduceMotion ? AppState.compactHoverScale.height : 1, anchor: .top)
+        .animation(reduceMotion ? nil : NotchMotion.hover(active: appState.hoverElevated)) { content in
+            content.scaleEffect(x: appState.hoverElevated && !reduceMotion ? AppState.compactHoverScale.width : 1, y: appState.hoverElevated && !reduceMotion ? AppState.compactHoverScale.height : 1, anchor: .top)
         }
         .animation(reduceMotion ? nil : NotchMotion.press) { content in
-            let pressed = notchPressed && appState.compactHoverActive && !reduceMotion
+            let pressed = notchPressed && appState.hoverElevated && !reduceMotion
             content.scaleEffect(x: pressed ? NotchMotion.pressedScale.width : 1, y: pressed ? NotchMotion.pressedScale.height : 1, anchor: .top)
         }
         // A fixed hover envelope avoids rebuilding its boundary during elevation.
@@ -166,9 +166,24 @@ private struct NotchSurface: View, Animatable {
                     .contentShape(shape)
             }
             .buttonStyle(MediaControlStyle(cornerRadius: 0) { notchPressed = $0 })
-            .allowsHitTesting(!expanded && visible)
+            // Also clickable as the bare camera rim while a paused track is tucked away.
+            .allowsHitTesting(!expanded && (visible || appState.canPeekFromCamera))
             .accessibilityHidden(expanded || !visible)
             .accessibilityLabel("Open music player")
+
+            // The waveform on the right of the closed notch plays or pauses; the rest of the
+            // notch still opens the player.
+            Button { appState.togglePlaybackFromCompact() } label: {
+                Color.clear
+                    .frame(width: 38, height: appState.notchHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(MediaControlStyle(cornerRadius: 0))
+            .onHover { appState.compactRightHover = $0 }
+            .offset(x: layout.size.width - 38)
+            .allowsHitTesting(!expanded && visible)
+            .accessibilityHidden(expanded || !visible)
+            .accessibilityLabel(appState.isPlaying ? "Pause" : "Play")
         }
         .frame(width: layout.size.width, height: layout.size.height, alignment: .topLeading)
         .mask { cornerMask }

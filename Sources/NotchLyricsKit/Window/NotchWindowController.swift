@@ -47,7 +47,17 @@ final class NotchWindowController {
     func updateSize(animated: Bool = true) { updateMousePassthrough() }
     private func updateMousePassthrough() {
         // The transparent canvas must never block clicks in the applications below it.
-        guard !appState.isTucked, let screen else { panel.ignoresMouseEvents = true; appState.isHovering = false; return }
+        guard let screen else { panel.ignoresMouseEvents = true; return }
+        if appState.isTucked {
+            // Tucked with a paused track: the camera housing itself is the hover target.
+            let mouse = NSEvent.mouseLocation
+            let camera = CGRect(x: panel.frame.midX - appState.cameraWidth / 2, y: screen.frame.maxY - appState.notchHeight,
+                                width: appState.cameraWidth, height: appState.notchHeight)
+            let overCamera = appState.canPeekFromCamera && camera.insetBy(dx: -6, dy: -2).contains(mouse)
+            panel.ignoresMouseEvents = !overCamera
+            if appState.isHovering != overCamera { appState.isHovering = overCamera }
+            return
+        }
         let size = appState.interactionSize
         let mouse = NSEvent.mouseLocation
         let scale = appState.transitionPhase == .compact && appState.compactHoverActive ? AppState.compactHoverScale : CGSize(width: 1, height: 1)
