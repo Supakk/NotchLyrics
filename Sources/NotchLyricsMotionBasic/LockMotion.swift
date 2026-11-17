@@ -31,3 +31,13 @@ extension NotchMotion {
     public static var playbackSymbolSwap: AnyTransition { .opacity }
     public static let playbackSymbolMorph = Animation.easeInOut(duration: 0.2)
 }
+
+extension NotchMotion {
+    public static let artworkOut = Animation.easeOut(duration: 0.2)
+    public static let artworkIn = Animation.easeOut(duration: 0.2)
+    public static let artworkInDelay: Double = 0
+    public static let artworkFlipDegrees: Double = 0
+    public static let artworkGlowStart: Double = 0
+    public static let artworkGlow = Animation.easeOut(duration: 0.2)
+    public static let artworkSettle: Duration = .milliseconds(220)
+}

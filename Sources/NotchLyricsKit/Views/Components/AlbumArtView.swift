@@ -7,25 +7,8 @@ struct AlbumArtView: View {
     var cornerRadius: CGFloat? = nil
 
     var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                // Fallback gradient
-                LinearGradient(
-                    colors: [Color(white: 0.35), Color(white: 0.15)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .overlay {
-                    Image(systemName: "music.note")
-                        .font(.system(size: size * 0.35))
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-            }
-        }
+        // Animates cover changes; falls back to a gradient with a music symbol.
+        ArtworkSwap(image: image, placeholderSymbolSize: size * 0.35)
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius ?? size * 0.15, style: .continuous))
     }

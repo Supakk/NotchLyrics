@@ -317,14 +317,7 @@ struct LockLyricsView: View {
         let radius: CGFloat = showsLyrics ? 14 : 10
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         return Button(action: toggle) {
-            ZStack {
-                if let image = track.artwork {
-                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    LinearGradient(colors: [Color(white: 0.35), Color(white: 0.15)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: "music.note").font(.system(size: 22)).foregroundStyle(.white.opacity(0.8))
-                }
-            }
+            ArtworkSwap(image: track.artwork, placeholderSymbolSize: 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(shape)
             .contentShape(shape)
