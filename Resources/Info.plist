@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>NSAppleEventsUsageDescription</key>
-    <string>NotchLyrics reads the current song and controls playback in Music and Spotify.</string>
+    <string>Notchu reads the current song and controls playback in Music and Spotify.</string>
     <key>CFBundleName</key>
-    <string>NotchLyrics</string>
+    <string>Notchu</string>
     <key>CFBundleIdentifier</key>
-    <string>com.notchlyrics.app</string>
+    <string>com.notchu.app</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
@@ -17,6 +17,6 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 NotchLyrics</string>
+    <string>Copyright © 2026 Notchu</string>
 </dict>
 </plist>

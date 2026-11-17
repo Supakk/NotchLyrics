@@ -147,7 +147,7 @@ final class LockLyrics {
     private static func request<T: Decodable>(_ url: URL, as type: T.Type) async throws -> T? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
-        request.setValue("NotchLyrics/1.0 (macOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Notchu/1.0 (macOS)", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         return try JSONDecoder().decode(T.self, from: data)

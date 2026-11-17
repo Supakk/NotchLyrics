@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Open, basic implementation of the NotchLyricsMotion API. It keeps the app fully
+// Open, basic implementation of the NotchuMotion API. It keeps the app fully
 // working with standard SwiftUI motion; the tuned version lives in a private package
 // that `Package.swift` uses instead when it is checked out next to this repository.
 

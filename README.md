@@ -1,9 +1,16 @@
-# NotchLyrics
+# Notchu
 
 > Dynamic Island for macOS with synced lyrics
 
-NotchLyrics turns the MacBook notch into a music player with track information, playback controls, and synchronized lyrics.
+Notchu turns the MacBook notch into a music player with track information, playback controls, and synchronized lyrics.
 
+
+
+## Download
+
+Get the latest build from the website, [supakk.github.io/Notchu](https://supakk.github.io/Notchu/), or from [GitHub Releases](https://github.com/Supakk/Notchu/releases/latest). It is free.
+
+To build the installer yourself: `scripts/package-dmg.sh` creates `dist/Notchu.dmg`.
 
 ## Requirements
 
@@ -17,7 +24,7 @@ NotchLyrics turns the MacBook notch into a music player with track information, 
 
 ```bash
 # Clone / download project
-cd NotchLyrics
+cd Notchu
 
 # Open the package in Xcode
 open Package.swift
@@ -25,7 +32,7 @@ open Package.swift
 
 In Xcode:
 
-1. Select the `NotchLyrics` scheme and the **My Mac** destination.
+1. Select the `Notchu` scheme and the **My Mac** destination.
 2. Open **Signing & Capabilities**.
    - Select your development team.
    - Enable **Disable Library Validation** for the private framework.
@@ -38,9 +45,9 @@ If you have trouble opening `Package.swift`, create a project manually:
 
 1. In Xcode, choose **File → New → Project**.
 2. Select **macOS → App**.
-3. Product Name: `NotchLyrics`
+3. Product Name: `Notchu`
 4. Interface: **SwiftUI**, Language: **Swift**
-5. Drag the source files from `Sources/NotchLyricsKit/` and `Sources/NotchLyrics/main.swift` into the project.
+5. Drag the source files from `Sources/NotchuKit/` and `Sources/Notchu/main.swift` into the project.
 6. Configure `Info.plist`.
    - Set `LSUIElement` to `YES` to hide the Dock icon.
 7. Build & Run
@@ -49,7 +56,7 @@ If you have trouble opening `Package.swift`, create a project manually:
 
 ```bash
 swift build
-.build/debug/NotchLyrics
+.build/debug/Notchu
 ```
 
 > Build and run the app on macOS.
@@ -78,9 +85,9 @@ After launching the app:
 
 ```
 Sources/
-├── NotchLyrics/              # Executable: main.swift only boots the app
-├── NotchLyricsKit/           # App code (tested by NotchLyricsKitTests)
-│   ├── App/                  # NotchLyricsApplication, AppDelegate, AppState
+├── Notchu/              # Executable: main.swift only boots the app
+├── NotchuKit/           # App code (tested by NotchuKitTests)
+│   ├── App/                  # NotchuApplication, AppDelegate, AppState
 │   ├── Models/               # TrackInfo, PlaybackMode, MediaCommand, LyricLine
 │   ├── Services/
 │   │   ├── Media/            # MediaEngine, Apple Music/Spotify bridge, MediaRemote
@@ -91,21 +98,21 @@ Sources/
 │   │   └── Components/       # Controls, progress bar, artwork
 │   ├── Window/               # NSPanel placement and mouse pass-through
 │   └── Utilities/            # Artwork color extraction
-└── NotchLyricsMotionBasic/   # Open basic implementation of NotchLyricsMotion
+└── NotchuMotionBasic/   # Open basic implementation of NotchuMotion
 Tests/
-└── NotchLyricsKitTests/      # Behavior, playback and lyrics tests
+└── NotchuKitTests/      # Behavior, playback and lyrics tests
 ```
 
-### NotchLyricsMotion
+### NotchuMotion
 
-Notch animation, geometry and control feel come from a `NotchLyricsMotion` module. The tuned
+Notch animation, geometry and control feel come from a `NotchuMotion` module. The tuned
 version is a private package; when it is checked out next to this repository
-(`../NotchLyricsMotion`), `Package.swift` uses it automatically. Without it the app builds
-against `Sources/NotchLyricsMotionBasic`, which has the same API and standard SwiftUI motion,
-so everything works, just less polished. Set `NOTCHLYRICS_BASIC_MOTION=1` to force the basic
+(`../NotchuMotion`), `Package.swift` uses it automatically. Without it the app builds
+against `Sources/NotchuMotionBasic`, which has the same API and standard SwiftUI motion,
+so everything works, just less polished. Set `NOTCHU_BASIC_MOTION=1` to force the basic
 implementation.
 
-Build the app bundle with `scripts/build-app.sh` (writes `dist/NotchLyrics.app`).
+Build the app bundle with `scripts/build-app.sh` (writes `dist/Notchu.app`).
 
 ## Roadmap
 
@@ -139,9 +146,9 @@ Options for distributing the app outside the Mac App Store include:
 ```bash
 # Create a Developer ID Application certificate in your Apple Developer account.
 # Sign and notarize the app.
-codesign --force --deep --sign "Developer ID Application: YOUR NAME" NotchLyrics.app
-xcrun notarytool submit NotchLyrics.zip --apple-id YOUR_ID --password APP_PASSWORD --team-id TEAM_ID
-xcrun stapler staple NotchLyrics.app
+codesign --force --deep --sign "Developer ID Application: YOUR NAME" Notchu.app
+xcrun notarytool submit Notchu.zip --apple-id YOUR_ID --password APP_PASSWORD --team-id TEAM_ID
+xcrun stapler staple Notchu.app
 ```
 
 ## License

@@ -1,7 +1,7 @@
 import AppKit
 
-/// Entry point used by the `NotchLyrics` executable.
-public enum NotchLyricsApplication {
+/// Entry point used by the `Notchu` executable.
+public enum NotchuApplication {
     public static func run() {
         let app = NSApplication.shared
         let delegate = AppDelegate()

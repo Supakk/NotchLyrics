@@ -3,43 +3,43 @@ import Foundation
 import PackageDescription
 
 // Tuned motion, notch geometry and control feel live in a private package. When it is
-// checked out next to this repository (../NotchLyricsMotion) the app uses it; otherwise it
-// builds against the open basic implementation in Sources/NotchLyricsMotionBasic, which
-// has the same API. Set NOTCHLYRICS_BASIC_MOTION=1 to force the basic one.
+// checked out next to this repository (../NotchuMotion) the app uses it; otherwise it
+// builds against the open basic implementation in Sources/NotchuMotionBasic, which
+// has the same API. Set NOTCHU_BASIC_MOTION=1 to force the basic one.
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let privateMotion = packageDirectory.appendingPathComponent("../NotchLyricsMotion").standardizedFileURL
-let usePrivateMotion = ProcessInfo.processInfo.environment["NOTCHLYRICS_BASIC_MOTION"] == nil
+let privateMotion = packageDirectory.appendingPathComponent("../NotchuMotion").standardizedFileURL
+let usePrivateMotion = ProcessInfo.processInfo.environment["NOTCHU_BASIC_MOTION"] == nil
     && FileManager.default.fileExists(atPath: privateMotion.appendingPathComponent("Package.swift").path)
 
 let motionDependency: Target.Dependency = usePrivateMotion
-    ? .product(name: "NotchLyricsMotion", package: "NotchLyricsMotion")
-    : "NotchLyricsMotion"
+    ? .product(name: "NotchuMotion", package: "NotchuMotion")
+    : "NotchuMotion"
 
 var targets: [Target] = [
     // Thin executable: only starts the app.
     .executableTarget(
-        name: "NotchLyrics",
-        dependencies: ["NotchLyricsKit"]
+        name: "Notchu",
+        dependencies: ["NotchuKit"]
     ),
     // App logic, views and services.
-    .target(name: "NotchLyricsKit", dependencies: [motionDependency]),
+    .target(name: "NotchuKit", dependencies: [motionDependency]),
     .testTarget(
-        name: "NotchLyricsKitTests",
-        dependencies: ["NotchLyricsKit"]
+        name: "NotchuKitTests",
+        dependencies: ["NotchuKit"]
     )
 ]
 if !usePrivateMotion {
-    targets.append(.target(name: "NotchLyricsMotion", path: "Sources/NotchLyricsMotionBasic"))
+    targets.append(.target(name: "NotchuMotion", path: "Sources/NotchuMotionBasic"))
 }
 
 let package = Package(
-    name: "NotchLyrics",
+    name: "Notchu",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "NotchLyrics", targets: ["NotchLyrics"])
+        .executable(name: "Notchu", targets: ["Notchu"])
     ],
-    dependencies: usePrivateMotion ? [.package(path: "../NotchLyricsMotion")] : [],
+    dependencies: usePrivateMotion ? [.package(path: "../NotchuMotion")] : [],
     targets: targets
 )

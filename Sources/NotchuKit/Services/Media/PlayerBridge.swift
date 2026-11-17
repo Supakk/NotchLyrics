@@ -3,9 +3,9 @@ import AppKit
 /// Direct player integration when MediaRemote does not return metadata.
 @Observable
 final class PlayerBridge {
-    private let queue = DispatchQueue(label: "NotchLyrics.player")
+    private let queue = DispatchQueue(label: "Notchu.player")
     /// Commands get their own queue so a slow metadata poll never delays a button press.
-    private let commandQueue = DispatchQueue(label: "NotchLyrics.player.commands")
+    private let commandQueue = DispatchQueue(label: "Notchu.player.commands")
     private var queuedRefresh: ((TrackInfo?) -> Void)?
     var shuffled = false
     var repeatMode = "off"

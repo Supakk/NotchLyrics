@@ -23,7 +23,7 @@ private func CGSSpaceDestroy(_ connection: CGSConnectionID, _ space: CGSSpaceID)
 
 /// Manages the menu bar item, window lifecycle, and mouse tracking.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let lockLogger = Logger(subsystem: "com.notchlyrics.app", category: "LockScreen")
+    private static let lockLogger = Logger(subsystem: "com.notchu.app", category: "LockScreen")
     private var windowController: NotchWindowController!
     private var statusItem: NSStatusItem!
     private let appState = AppState()
@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.windowController.updateSize()
         }
 
-        print("[App] NotchLyrics launched")
+        print("[App] Notchu launched")
     }
 
     private func setupLockScreen() {
@@ -271,14 +271,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button {
             button.image = NSImage(
                 systemSymbolName: "music.note",
-                accessibilityDescription: "NotchLyrics"
+                accessibilityDescription: "Notchu"
             )
             button.image?.size = NSSize(width: 16, height: 16)
         }
 
         let menu = NSMenu()
 
-        menu.addItem(withTitle: "NotchLyrics v1.0", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Notchu v1.0", action: nil, keyEquivalent: "")
         menu.items.first?.isEnabled = false
 
         menu.addItem(withTitle: "Hide in Camera Notch", action: #selector(tuckNotch), keyEquivalent: "")

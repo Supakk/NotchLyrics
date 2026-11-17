@@ -1,5 +1,5 @@
 import XCTest
-@testable import NotchLyricsKit
+@testable import NotchuKit
 
 final class LockLyricsTests: XCTestCase {
     func testActiveLineTracksElapsedTime() {
