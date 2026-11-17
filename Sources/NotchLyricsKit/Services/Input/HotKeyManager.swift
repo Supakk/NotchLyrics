@@ -37,9 +37,9 @@ final class HotKeyManager {
 
         if status == noErr {
             handlers[id] = handler
-            print("[HotKey] ✅ Registered hotkey #\(id)")
+            print("[HotKey] Registered hotkey #\(id)")
         } else {
-            print("[HotKey] ❌ Failed to register hotkey: \(status)")
+            print("[HotKey] Failed to register hotkey: \(status)")
         }
 
         return id

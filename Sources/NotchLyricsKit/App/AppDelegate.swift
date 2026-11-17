@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.windowController.updateSize()
         }
 
-        print("[App] ✅ NotchLyrics launched")
+        print("[App] NotchLyrics launched")
     }
 
     private func setupLockScreen() {

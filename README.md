@@ -1,4 +1,4 @@
-# NotchLyrics 🎵
+# NotchLyrics
 
 > Dynamic Island for macOS with synced lyrics
 

@@ -52,7 +52,7 @@ final class MediaRemoteBridge {
         handle = dlopen(path, RTLD_LAZY)
 
         guard handle != nil else {
-            print("[MediaRemote] ❌ Failed to load framework: \(String(cString: dlerror()))")
+            print("[MediaRemote] Failed to load framework: \(String(cString: dlerror()))")
             return
         }
 
@@ -71,13 +71,13 @@ final class MediaRemoteBridge {
         )
 
         isLoaded = true
-        print("[MediaRemote] ✅ Framework loaded successfully")
+        print("[MediaRemote] Framework loaded successfully")
     }
 
     private func loadFunction<T>(_ name: String) -> T? {
         guard let handle else { return nil }
         guard let sym = dlsym(handle, name) else {
-            print("[MediaRemote] ⚠️ Symbol not found: \(name)")
+            print("[MediaRemote] Symbol not found: \(name)")
             return nil
         }
         return unsafeBitCast(sym, to: T.self)
@@ -129,7 +129,7 @@ final class MediaRemoteBridge {
     func registerForNotifications() {
         guard let fn = MRMediaRemoteRegisterForNowPlayingNotifications else { return }
         fn(DispatchQueue.main)
-        print("[MediaRemote] 🔔 Registered for notifications")
+        print("[MediaRemote] Registered for notifications")
     }
 
     // MARK: - Parse
