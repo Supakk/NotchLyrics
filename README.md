@@ -8,7 +8,7 @@ Notchu turns the MacBook notch into a music player with track information, playb
 
 ## Download
 
-Get the latest build from the website, [supakk.github.io/Notchu](https://supakk.github.io/Notchu/), or from [GitHub Releases](https://github.com/Supakk/Notchu/releases/latest). It is free.
+Get the latest build from [GitHub Releases](https://github.com/Supakk/Notchu/releases/latest). It is free. The website lives in its own repository, [Notchu-web](https://github.com/Supakk/Notchu-web).
 
 To build the installer yourself: `scripts/package-dmg.sh` creates `dist/Notchu.dmg`.
 
