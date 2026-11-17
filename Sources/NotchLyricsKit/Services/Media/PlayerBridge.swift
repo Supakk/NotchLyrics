@@ -18,6 +18,25 @@ final class PlayerBridge {
     private var busy = false
     private var pendingArtworkKey: String?
     private var failedArtworkKeys: Set<String> = []
+    /// Tracks whose embedded Music artwork has been asked for once already.
+    private var scriptArtworkTried: Set<String> = []
+    /// Compiled once and reused: compiling every poll is slow and makes the system scan the
+    /// script again each time. Only used on `queue`.
+    private var compiledScripts: [String: NSAppleScript] = [:]
+
+    private func runScript(_ source: String, error: inout NSDictionary?) -> NSAppleEventDescriptor? {
+        let script: NSAppleScript
+        if let cached = compiledScripts[source] {
+            script = cached
+        } else {
+            guard let created = NSAppleScript(source: source) else { return nil }
+            created.compileAndReturnError(&error)
+            if error != nil { return nil }
+            compiledScripts[source] = created
+            script = created
+        }
+        return script.executeAndReturnError(&error)
+    }
     private var artworkKeys: [String: String] = [:]
     private var cachedArtworks: [String: NSImage] = [:]
     /// Covers already seen, so a repeated track shows its cover immediately.
@@ -66,7 +85,8 @@ final class PlayerBridge {
             var selectedVolume = 0
             for id in candidates {
                 let duration = id == "com.spotify.client" ? "(duration of t) / 1000" : "duration of t"
-                let artwork = id == "com.apple.Music" ? "try\nset art to raw data of artwork 1 of t\nend try" : "set art to artwork url of t"
+                // Music's artwork is image data; it is fetched separately, once per track.
+                let artwork = id == "com.apple.Music" ? "" : "set art to artwork url of t"
                 // Music exposes the playlist being played; skip library sources such as "Music".
                 // Spotify's scripting dictionary has no playlist/context, so it stays empty.
                 let playlist = id == "com.apple.Music" ? "try\nif (special kind of current playlist as string) is \"none\" then set pl to name of current playlist\nend try" : ""
@@ -84,13 +104,21 @@ final class PlayerBridge {
                 end tell
                 """
                 var error: NSDictionary?
-                guard let reply = NSAppleScript(source: source)?.executeAndReturnError(&error), error == nil, reply.numberOfItems == 11 else {
+                guard let reply = self.runScript(source, error: &error), error == nil, reply.numberOfItems == 11 else {
                     if let error { DispatchQueue.main.async { self.lastError = error.description; NSLog("Player metadata failed: %@", error) } }
                     continue
                 }
                 let key = id + "|" + (reply.atIndex(1)?.stringValue ?? "") + "|" + (reply.atIndex(3)?.stringValue ?? "")
                 var image = self.artworkStore[key] ?? (key == self.artworkKeys[id] ? self.cachedArtworks[id] : nil)
-                if image == nil, id == "com.apple.Music", let data = reply.atIndex(7)?.data { image = NSImage(data: data) }
+                if image == nil, id == "com.apple.Music", !self.scriptArtworkTried.contains(key) {
+                    self.scriptArtworkTried.insert(key)
+                    var artError: NSDictionary?
+                    let art = self.runScript("tell application id \"com.apple.Music\"\ntry\nreturn raw data of artwork 1 of current track\nend try\nreturn \"\"\nend tell", error: &artError)
+                    if let data = art?.data, !data.isEmpty, let found = NSImage(data: data) {
+                        image = found
+                        self.remember(found, for: key)
+                    }
+                }
                 if image == nil, id == "com.spotify.client", self.pendingArtworkKey != key,
                    let address = reply.atIndex(7)?.stringValue, let url = URL(string: address), url.scheme == "https" {
                     self.pendingArtworkKey = key

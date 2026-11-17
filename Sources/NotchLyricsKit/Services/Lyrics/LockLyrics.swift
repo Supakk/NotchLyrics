@@ -415,12 +415,15 @@ struct LockLyricsView: View {
     }
 
     /// Re-evaluates the active line ten times a second from an interpolated playback time,
-    /// instead of jumping on the player's half-second ticks.
+    /// instead of jumping on the player's half-second ticks. The clock stops whenever the
+    /// card is not on screen or nothing is playing, so the hidden panel costs nothing.
     private var syncedLyrics: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { context in
+        let live = shown && state.isPlaying
+        return TimelineView(.animation(minimumInterval: 0.1, paused: !live)) { context in
             let time = state.mediaEngine.playbackTime(at: context.date) + LockMotion.lyricLead
             LyricsColumn(lines: state.lockLyrics.displayLines,
                          synced: state.lockLyrics.isSynced,
+                         live: live,
                          placeholder: state.lockLyrics.text,
                          activeLine: Self.activeLineID(in: state.lockLyrics.displayLines, elapsedTime: time))
         }
@@ -435,6 +438,8 @@ private struct LyricsColumn: View {
     let lines: [LyricLine]
     /// Without timing every line stays equally readable; only the scroll follows the song.
     let synced: Bool
+    /// On screen and playing; animated decorations rest otherwise.
+    let live: Bool
     let placeholder: String
     let activeLine: Int?
 
@@ -491,7 +496,7 @@ private struct LyricsColumn: View {
         let distance = synced ? abs(line.id - (activeLine ?? -10)) : 0
         return Group {
             if line.isInterlude {
-                InterludeDots(active: active)
+                InterludeDots(active: active && live)
             } else {
                 Text(line.text)
             }
@@ -535,7 +540,8 @@ private struct InterludeDots: View {
     let active: Bool
 
     var body: some View {
-        TimelineView(.animation(paused: !active)) { context in
+        // 30 fps is plenty for a slow breathing motion and halves the redraws on 120 Hz screens.
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !active)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: 9) {
                 ForEach(0..<3) { index in

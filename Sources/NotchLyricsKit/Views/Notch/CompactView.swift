@@ -3,6 +3,10 @@ import SwiftUI
 struct CompactView: View {
     let appState: AppState
     static var morph: Animation { NotchMotion.playbackSymbolMorph }
+
+    private var waveformVisible: Bool {
+        !appState.isTucked && appState.notchState == .compact && appState.currentTrack.hasTrack
+    }
     static var swap: AnyTransition { NotchMotion.playbackSymbolSwap }
 
     var body: some View {
@@ -15,7 +19,8 @@ struct CompactView: View {
                     SwappingSymbol(name: symbol, size: 12, weight: .bold)
                         .transition(Self.swap)
                 } else {
-                    CompactWaveform(isPlaying: appState.isPlaying, colors: appState.presentationColors)
+                    // Animate only while the closed notch is actually showing.
+                    CompactWaveform(isPlaying: appState.isPlaying && waveformVisible, colors: appState.presentationColors)
                         .transition(Self.swap)
                 }
             }

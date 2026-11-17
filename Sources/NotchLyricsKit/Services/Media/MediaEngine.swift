@@ -39,7 +39,12 @@ final class MediaEngine {
         setupNotifications()
         bridge.registerForNotifications()
         refreshNowPlaying()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshNowPlaying() }
+        // Every 2 s while playing; every 6 s otherwise (the players also announce changes).
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if self.isPlaying || Date().timeIntervalSince(self.lastRefreshAt) >= 6 { self.refreshNowPlaying() }
+        }
+        pollTimer?.tolerance = 0.4
     }
 
     private var updatesStopped = false
@@ -105,8 +110,11 @@ final class MediaEngine {
 
     // MARK: - Refresh
 
+    private var lastRefreshAt = Date.distantPast
+
     func refreshNowPlaying() {
         guard !updatesStopped else { return }
+        lastRefreshAt = Date()
         let generation = playerBridge.controlGeneration
         playerBridge.refresh { [weak self] track in
             guard let self else { return }
@@ -130,7 +138,16 @@ final class MediaEngine {
             if track.artwork != nil, track.artwork !== self.currentTrack.artwork { self.coverCarryUntil = nil }
 
             if trackChanged || self.currentTrack.artwork !== track.artwork {
-                self.artworkColors = ColorExtractor.gradient(from: track.artwork)
+                // Palette extraction clusters pixels; keep it off the main thread so the
+                // track-change animation never drops a frame.
+                let artwork = track.artwork
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    let colors = ColorExtractor.gradient(from: artwork)
+                    DispatchQueue.main.async {
+                        guard let self, self.currentTrack.artwork === artwork else { return }
+                        self.artworkColors = colors
+                    }
+                }
             }
             self.currentTrack = track
             self.isPlaying = track.isPlaying
@@ -158,6 +175,7 @@ final class MediaEngine {
             guard let self, self.isPlaying else { return }
             self.elapsedTime = min(self.elapsedTime + 0.5, self.currentTrack.duration)
         }
+        elapsedTimer?.tolerance = 0.05
     }
 
     private func stopElapsedTimer() {
