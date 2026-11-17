@@ -20,6 +20,7 @@ final class PlayerBridge {
     private var failedArtworkKeys: Set<String> = []
     /// Tracks whose embedded Music artwork has been asked for once already.
     private var scriptArtworkTried: Set<String> = []
+    private var cacheCheckedAt: [String: Date] = [:]
     /// Compiled once and reused: compiling every poll is slow and makes the system scan the
     /// script again each time. Only used on `queue`.
     private var compiledScripts: [String: NSAppleScript] = [:]
@@ -43,14 +44,21 @@ final class PlayerBridge {
     private var artworkStore: [String: NSImage] = [:]
     private var artworkOrder: [String] = []
     /// Called on the main queue when a cover finishes loading, so the UI need not wait for the next poll.
-    var onArtworkReady: (() -> Void)?
+    /// Delivers a cover the moment it is ready, tagged with its track's key, so the UI can
+    /// show it without another metadata poll and ignore covers of tracks already skipped.
+    var onArtworkReady: ((String, NSImage) -> Void)?
+
+    /// Identity of a track's cover: player, title and album.
+    static func artworkKey(bundleID: String, title: String, album: String) -> String {
+        bundleID + "|" + title + "|" + album
+    }
 
     private func remember(_ image: NSImage, for key: String) {
         artworkStore[key] = image
         artworkOrder.removeAll { $0 == key }
         artworkOrder.append(key)
         if artworkOrder.count > 40 { artworkStore[artworkOrder.removeFirst()] = nil }
-        DispatchQueue.main.async { self.onArtworkReady?() }
+        DispatchQueue.main.async { self.onArtworkReady?(key, image) }
     }
     private(set) var bundleID: String?
     private var previousVolume = 100
@@ -108,7 +116,7 @@ final class PlayerBridge {
                     if let error { DispatchQueue.main.async { self.lastError = error.description; NSLog("Player metadata failed: %@", error) } }
                     continue
                 }
-                let key = id + "|" + (reply.atIndex(1)?.stringValue ?? "") + "|" + (reply.atIndex(3)?.stringValue ?? "")
+                let key = Self.artworkKey(bundleID: id, title: reply.atIndex(1)?.stringValue ?? "", album: reply.atIndex(3)?.stringValue ?? "")
                 var image = self.artworkStore[key] ?? (key == self.artworkKeys[id] ? self.cachedArtworks[id] : nil)
                 if image == nil, id == "com.apple.Music", !self.scriptArtworkTried.contains(key) {
                     self.scriptArtworkTried.insert(key)
@@ -137,7 +145,7 @@ final class PlayerBridge {
                 }
                 // Streaming tracks in Music expose no artwork to scripts; look the cover up by
                 // title and artist (cached per track, one request at a time).
-                if image == nil, id == "com.apple.Music", self.pendingArtworkKey != key, !self.failedArtworkKeys.contains(key),
+                if image == nil, id == "com.apple.Music", self.pendingArtworkKey != key,
                    let title = reply.atIndex(1)?.stringValue, let artist = reply.atIndex(2)?.stringValue, !title.isEmpty {
                     self.pendingArtworkKey = key
                     self.fetchCatalogArtwork(title: title, artist: artist, id: id, key: key)
@@ -227,50 +235,98 @@ extension PlayerBridge {
     /// metadata poll has even run. The key matches the one a poll builds for the same track.
     func prefetchCatalogArtwork(title: String, artist: String, album: String) {
         let id = "com.apple.Music"
-        let key = id + "|" + title + "|" + album
+        let key = Self.artworkKey(bundleID: id, title: title, album: album)
         queue.async {
-            guard !title.isEmpty, self.artworkStore[key] == nil, self.pendingArtworkKey != key,
-                  !self.failedArtworkKeys.contains(key) else { return }
+            guard !title.isEmpty, self.artworkStore[key] == nil, self.pendingArtworkKey != key else { return }
             self.pendingArtworkKey = key
             self.fetchCatalogArtwork(title: title, artist: artist, id: id, key: key)
         }
     }
 
-    /// Looks a cover up in Apple's public iTunes Search API. Only title and artist are sent.
+    /// Finds the cover Apple Music shows: first the artwork URL from Music's own catalog
+    /// cache (the exact image), else Apple's public iTunes Search in the same store, taking a
+    /// result only if both title and artist match. Only title and artist are sent.
     fileprivate func fetchCatalogArtwork(title: String, artist: String, id: String, key: String) {
+        // Reading Music's cache parses a few JSON files; while a cover is still missing, do
+        // it at most every 5 s.
+        if let last = cacheCheckedAt[key], Date().timeIntervalSince(last) < 5, failedArtworkKeys.contains(key) {
+            pendingArtworkKey = nil; return
+        }
+        cacheCheckedAt[key] = Date()
+        if let url = AppleMusicLyricsCache.artworkURL(title: title, artist: artist) {
+            downloadArtwork(url, id: id, key: key, searchFallback: nil)
+            return
+        }
+        guard !failedArtworkKeys.contains(key) else { pendingArtworkKey = nil; return }
         var components = URLComponents(string: "https://itunes.apple.com/search")
         components?.queryItems = [
             URLQueryItem(name: "term", value: "\(title) \(artist)"),
             URLQueryItem(name: "entity", value: "song"),
-            URLQueryItem(name: "limit", value: "5")
-        ]
+            URLQueryItem(name: "limit", value: "10")
+        ] + (AppleMusicLyricsCache.storefront().map { [URLQueryItem(name: "country", value: $0)] } ?? [])
         guard let url = components?.url else { pendingArtworkKey = nil; return }
         var request = URLRequest(url: url)
         request.timeoutInterval = 6
         URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
             guard let self else { return }
-            func finish(_ image: NSImage?) {
+            let results = (response as? HTTPURLResponse)?.statusCode == 200
+                ? ((data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any])?["results"] as? [[String: Any]] ?? [])
+                : []
+            let match = results.first {
+                Self.sameTitle($0["trackName"] as? String, title) && Self.sameArtist($0["artistName"] as? String, artist)
+            }
+            guard let address = (match?["artworkUrl100"] as? String)?.replacingOccurrences(of: "100x100bb", with: "600x600bb"),
+                  let imageURL = URL(string: address), imageURL.scheme == "https", imageURL.host?.hasSuffix("mzstatic.com") == true else {
+                // No confident match: show no cover rather than a wrong one, and do not ask
+                // the network again for this track (Music's cache is still checked).
                 self.queue.async {
                     if self.pendingArtworkKey == key { self.pendingArtworkKey = nil }
-                    guard let image else { self.failedArtworkKeys.insert(key); return }
-                    self.remember(image, for: key)
-                    if self.artworkKeys[id] == key { self.cachedArtworks[id] = image }
+                    self.failedArtworkKeys.insert(key)
                 }
+                return
             }
-            guard (response as? HTTPURLResponse)?.statusCode == 200, let data, data.count < 1_000_000,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let results = json["results"] as? [[String: Any]] else { return finish(nil) }
-            let match = results.first { ($0["artistName"] as? String)?.localizedCaseInsensitiveContains(artist) == true
-                || artist.localizedCaseInsensitiveContains($0["artistName"] as? String ?? "\u{0}") } ?? results.first
-            guard var address = match?["artworkUrl100"] as? String else { return finish(nil) }
-            address = address.replacingOccurrences(of: "100x100bb", with: "600x600bb")
-            guard let imageURL = URL(string: address), imageURL.scheme == "https", imageURL.host?.hasSuffix("mzstatic.com") == true else { return finish(nil) }
-            var imageRequest = URLRequest(url: imageURL)
-            imageRequest.timeoutInterval = 6
-            URLSession.shared.dataTask(with: imageRequest) { data, response, _ in
-                guard (response as? HTTPURLResponse)?.statusCode == 200, let data, data.count <= 10_000_000 else { return finish(nil) }
-                finish(NSImage(data: data))
-            }.resume()
+            self.downloadArtwork(imageURL, id: id, key: key, searchFallback: key)
         }.resume()
+    }
+
+    private func downloadArtwork(_ url: URL, id: String, key: String, searchFallback: String?) {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 6
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self else { return }
+            let image = (response as? HTTPURLResponse)?.statusCode == 200 ? data.flatMap { $0.count <= 10_000_000 ? NSImage(data: $0) : nil } : nil
+            self.queue.async {
+                if self.pendingArtworkKey == key { self.pendingArtworkKey = nil }
+                guard let image else {
+                    if let searchFallback { self.failedArtworkKeys.insert(searchFallback) }
+                    return
+                }
+                self.remember(image, for: key)
+                if self.artworkKeys[id] == key { self.cachedArtworks[id] = image }
+            }
+        }.resume()
+    }
+
+    /// Titles match ignoring case, accents and a trailing "(feat. …)" / "[…]" part.
+    static func sameTitle(_ a: String?, _ b: String) -> Bool {
+        guard let a else { return false }
+        func core(_ s: String) -> String {
+            s.replacingOccurrences(of: #"\s*[\(\[](feat|with|ft)\.?[^\)\]]*[\)\]]"#, with: "", options: [.regularExpression, .caseInsensitive])
+                .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return core(a) == core(b)
+    }
+
+    /// The first credited artist of each side matches.
+    static func sameArtist(_ a: String?, _ b: String) -> Bool {
+        guard let a else { return false }
+        func lead(_ s: String) -> String {
+            (s.components(separatedBy: CharacterSet(charactersIn: "&,")).first ?? s)
+                .replacingOccurrences(of: #"\s+(feat\.?|ft\.?|x)\s+.*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+                .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return !lead(b).isEmpty && lead(a) == lead(b)
     }
 }

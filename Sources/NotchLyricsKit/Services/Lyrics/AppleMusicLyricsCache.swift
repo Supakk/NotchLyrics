@@ -18,7 +18,7 @@ enum AppleMusicLyricsCache {
     /// Synced lines, or else the plain words, for the newest cached catalog entry whose
     /// title and artist match.
     static func lyrics(title: String, artist: String, directory: URL = cacheDirectory) -> Lyrics? {
-        for body in recentLyricResponses(in: directory) {
+        for body in recentSongResponses(in: directory, lyricsOnly: true) {
             guard let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
                   let songs = json["data"] as? [[String: Any]] else { continue }
             for song in songs {
@@ -43,6 +43,50 @@ enum AppleMusicLyricsCache {
         return nil
     }
 
+    /// The cover Apple Music itself shows for a song it has played, from its cached catalog
+    /// entry (the artwork URL is a template sized here).
+    static func artworkURL(title: String, artist: String, size: Int = 600, directory: URL = cacheDirectory) -> URL? {
+        for body in recentSongResponses(in: directory, lyricsOnly: false) {
+            guard let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+                  let songs = json["data"] as? [[String: Any]] else { continue }
+            for song in songs {
+                guard let attributes = song["attributes"] as? [String: Any],
+                      Self.same(attributes["name"] as? String, title),
+                      Self.same(attributes["artistName"] as? String, artist) || artist.isEmpty,
+                      let artwork = attributes["artwork"] as? [String: Any],
+                      let template = artwork["url"] as? String else { continue }
+                let address = template
+                    .replacingOccurrences(of: "{w}", with: String(size))
+                    .replacingOccurrences(of: "{h}", with: String(size))
+                    .replacingOccurrences(of: "{c}", with: "bb")
+                    .replacingOccurrences(of: "{f}", with: "jpg")
+                guard let url = URL(string: address), url.scheme == "https",
+                      url.host?.hasSuffix("mzstatic.com") == true else { continue }
+                return url
+            }
+        }
+        return nil
+    }
+
+    /// The App Store country Apple Music uses (from its cached catalog requests), e.g. "th".
+    static func storefront(directory: URL = cacheDirectory) -> String? {
+        let database = directory.appendingPathComponent("Cache.db").path
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(database, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            sqlite3_close(handle); return nil
+        }
+        defer { sqlite3_close(handle) }
+        let sql = "SELECT request_key FROM cfurl_cache_response WHERE request_key LIKE '%music.apple.com/v1/catalog/%' ORDER BY time_stamp DESC LIMIT 1"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_ROW, let text = sqlite3_column_text(statement, 0) else { return nil }
+        let key = String(cString: text)
+        guard let range = key.range(of: "/v1/catalog/") else { return nil }
+        let code = key[range.upperBound...].prefix { $0 != "/" && $0 != "?" }
+        return code.count == 2 ? String(code) : nil
+    }
+
     private static func ttml(in attributes: [String: Any]) -> String? {
         if let ttml = attributes["ttml"] as? String { return ttml }
         if let list = attributes["ttmlLocalizations"] as? String { return list }
@@ -55,8 +99,9 @@ enum AppleMusicLyricsCache {
         return a.compare(b, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) == .orderedSame
     }
 
-    /// Bodies of the newest cached catalog song responses that carry lyrics.
-    private static func recentLyricResponses(in directory: URL, limit: Int = 40) -> [Data] {
+    /// Bodies of the newest cached catalog song responses (only those that asked for lyrics,
+    /// if `lyricsOnly`).
+    private static func recentSongResponses(in directory: URL, lyricsOnly: Bool, limit: Int = 40) -> [Data] {
         let database = directory.appendingPathComponent("Cache.db").path
         var handle: OpaquePointer?
         guard sqlite3_open_v2(database, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
@@ -66,7 +111,7 @@ enum AppleMusicLyricsCache {
         let sql = """
         SELECT d.receiver_data, d.isDataOnFS FROM cfurl_cache_response r
         JOIN cfurl_cache_receiver_data d ON r.entry_ID = d.entry_ID
-        WHERE r.request_key LIKE '%music.apple.com/v1/catalog/%/songs/%' AND r.request_key LIKE '%lyrics%'
+        WHERE r.request_key LIKE '%music.apple.com/v1/catalog/%/songs/%'\(lyricsOnly ? " AND r.request_key LIKE '%lyrics%'" : "")
         ORDER BY r.time_stamp DESC LIMIT \(limit)
         """
         var statement: OpaquePointer?

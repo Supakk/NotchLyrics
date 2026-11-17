@@ -112,6 +112,32 @@ final class MediaEngine {
 
     private var lastRefreshAt = Date.distantPast
 
+    /// A cover arrived. Use it only if it belongs to the track playing now; covers of tracks
+    /// already skipped past are dropped, so fast skipping lands on the right cover.
+    private func showArtwork(_ image: NSImage, for key: String) {
+        let track = currentTrack
+        guard let bundleID = track.bundleID,
+              key == PlayerBridge.artworkKey(bundleID: bundleID, title: track.title, album: track.album),
+              track.artwork !== image else { return }
+        var updated = track
+        updated.artwork = image
+        coverCarryUntil = nil
+        currentTrack = updated
+        updateArtworkColors(for: image)
+    }
+
+    private func updateArtworkColors(for artwork: NSImage?) {
+        // Palette extraction clusters pixels; keep it off the main thread so the
+        // track-change animation never drops a frame.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let colors = ColorExtractor.gradient(from: artwork)
+            DispatchQueue.main.async {
+                guard let self, self.currentTrack.artwork === artwork else { return }
+                self.artworkColors = colors
+            }
+        }
+    }
+
     func refreshNowPlaying() {
         guard !updatesStopped else { return }
         lastRefreshAt = Date()
@@ -138,16 +164,7 @@ final class MediaEngine {
             if track.artwork != nil, track.artwork !== self.currentTrack.artwork { self.coverCarryUntil = nil }
 
             if trackChanged || self.currentTrack.artwork !== track.artwork {
-                // Palette extraction clusters pixels; keep it off the main thread so the
-                // track-change animation never drops a frame.
-                let artwork = track.artwork
-                DispatchQueue.global(qos: .utility).async { [weak self] in
-                    let colors = ColorExtractor.gradient(from: artwork)
-                    DispatchQueue.main.async {
-                        guard let self, self.currentTrack.artwork === artwork else { return }
-                        self.artworkColors = colors
-                    }
-                }
+                self.updateArtworkColors(for: track.artwork)
             }
             self.currentTrack = track
             self.isPlaying = track.isPlaying
@@ -217,7 +234,7 @@ final class MediaEngine {
                 self?.refreshNowPlaying()
             })
         }
-        playerBridge.onArtworkReady = { [weak self] in self?.refreshNowPlaying() }
+        playerBridge.onArtworkReady = { [weak self] key, image in self?.showArtwork(image, for: key) }
 
         // Wake from sleep → refresh
         let wakeObs = NSWorkspace.shared.notificationCenter.addObserver(

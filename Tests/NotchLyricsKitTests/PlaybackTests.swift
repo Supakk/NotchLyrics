@@ -29,4 +29,13 @@ final class PlaybackTests: XCTestCase {
         let bare = TrackInfo(title: "Song", artist: "Artist", album: "", artwork: nil, duration: 0, elapsedTime: 0, isPlaying: true, bundleID: nil)
         XCTAssertEqual(bare.subtitle, "Artist")
     }
+
+    func testCoverSearchAcceptsOnlyTheSameSong() {
+        XCTAssertTrue(PlayerBridge.sameTitle("Perfect (feat. 1MILL)", "Perfect (feat. 1MILL)"))
+        XCTAssertTrue(PlayerBridge.sameTitle("Perfect", "Perfect (feat. 1MILL)"))
+        XCTAssertFalse(PlayerBridge.sameTitle("Bag of Money (feat. Rick Ross & T-Pain)", "Perfect (feat. 1MILL)"))
+        XCTAssertTrue(PlayerBridge.sameArtist("PUN & 1MILL", "PUN"))
+        XCTAssertTrue(PlayerBridge.sameArtist("PRYVT, BIG Naughty", "PRYVT & BIG Naughty"))
+        XCTAssertFalse(PlayerBridge.sameArtist("Wale & Meek Mill", "PUN"))
+    }
 }
