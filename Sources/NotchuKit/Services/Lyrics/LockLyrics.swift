@@ -200,7 +200,8 @@ struct LockLyricsView: View {
     /// Only while music is playing (or just paused from here); nothing to show otherwise.
     private var shown: Bool { state.lockScreenVisible && track.hasTrack && (state.isPlaying || pauseGrace) }
     private var showsLyrics: Bool { wantsLyrics && state.lockLyrics.hasLyrics }
-    private var radius: CGFloat { showsLyrics ? 26 : 20 }
+    /// One radius for both modes, so the corners hold still while the card changes size.
+    private let radius: CGFloat = 24
 
     var body: some View {
         ZStack {
