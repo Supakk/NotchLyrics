@@ -4,6 +4,17 @@
 
 Notchu turns the MacBook notch into a music player with track information, playback controls, and synchronized lyrics.
 
+## Features
+
+- **Lives in the notch.** While music plays, a compact live activity sits beside the camera: cover on the left, a waveform on the right. Click the waveform to play or pause; click anywhere else to open the player.
+- **A player on hover.** Hovering lifts the notch and shows a progress line. The open player has the title (it scrolls when too long), artist and album, elapsed and remaining time, and the controls: shuffle / play in order / repeat one, previous, play or pause, next, mute.
+- **Gestures.** Swipe left or right on the notch for the next or previous track, swipe up to close, click the cover to open the music app.
+- **Behind the camera.** With nothing queued, or once playback has been paused for a while, the notch tucks away into the camera housing. Hovering it brings back a thin rim, and playing brings the notch out again.
+- **Lyrics on the lock screen.** A card with the cover, controls and time-synced lyrics (with dots for instrumental parts), or a compact card without lyrics. Tap the cover to switch between the two. It fades away when you unlock.
+- **Apple Music and Spotify.** Track, cover, progress and controls for both. Lyrics come from the Apple Music cache when available, then LRCLIB, then plain text.
+- **Cover that matches.** The cover is the one Apple Music shows, shown straight away, and it turns over when the track changes. The progress line takes its gradient from the cover.
+- **Light.** Timers pause when nothing is visible, and idle CPU use stays well under one percent.
+
 
 
 ## Download
@@ -91,7 +102,7 @@ Sources/
 │   ├── Models/               # TrackInfo, PlaybackMode, MediaCommand, LyricLine
 │   ├── Services/
 │   │   ├── Media/            # MediaEngine, Apple Music/Spotify bridge, MediaRemote
-│   │   ├── Lyrics/           # LRCLIB lyrics loader
+│   │   ├── Lyrics/           # Apple Music cache and LRCLIB lyrics, lock screen card
 │   │   └── Input/            # Global hot keys
 │   ├── Views/
 │   │   ├── Notch/            # Notch container, compact and expanded layouts
@@ -116,11 +127,11 @@ Build the app bundle with `scripts/build-app.sh` (writes `dist/Notchu.app`).
 
 ## Roadmap
 
-- [x] **Phase 1** — NotchWindow + MediaEngine + Controls (current)
-- [ ] **Phase 2** — Synced lyrics (LRCLIB + Musixmatch)
-- [ ] **Phase 3** — Polish (animations, multi-monitor, accent colors)
-- [ ] **Phase 4** — Lock screen, notifications, settings
-- [ ] **Phase 5** — License system + launch
+- [x] Notch window, media engine and controls
+- [x] Synced lyrics (Apple Music cache, LRCLIB)
+- [x] Lock screen card, tuck behind the camera, cover turn, idle CPU
+- [ ] Multi-monitor and accent colors
+- [ ] Settings window
 
 ## Tech Notes
 
