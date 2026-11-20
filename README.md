@@ -147,20 +147,13 @@ Open-source references include LyricsX, Boring Notch, and Carol.
 
 ### Distribution
 
-Options for distributing the app outside the Mac App Store include:
-- **Gumroad** — one-time purchases with developer-managed licensing
-- **Paddle** — subscriptions or one-time purchases with VAT handling
-- **Setapp** — a subscription bundle with an established user base
+Notchu is free, distributed only through [GitHub Releases](https://github.com/Supakk/Notchu/releases/latest) — no paid storefront.
 
-### Code signing for distribution
+### Code signing
 
-```bash
-# Create a Developer ID Application certificate in your Apple Developer account.
-# Sign and notarize the app.
-codesign --force --deep --sign "Developer ID Application: YOUR NAME" Notchu.app
-xcrun notarytool submit Notchu.zip --apple-id YOUR_ID --password APP_PASSWORD --team-id TEAM_ID
-xcrun stapler staple Notchu.app
-```
+The released `.dmg` is ad-hoc signed with the hardened runtime, not signed with a paid
+Apple Developer ID. Gatekeeper shows an "unidentified developer" warning on first launch;
+right-click the app and choose **Open** to run it anyway.
 
 ## License
 
