@@ -21,7 +21,7 @@ Notchu turns the MacBook notch into a music player with track information, playb
 
 Get the latest build from [GitHub Releases](https://github.com/Supakk/Notchu/releases/latest). It is free. The website lives in its own repository, [Notchu-web](https://github.com/Supakk/Notchu-web).
 
-To build the installer yourself: `scripts/package-dmg.sh` creates `dist/Notchu.dmg`.
+To build and run it yourself from this source: `scripts/build-app.sh` creates `dist/Notchu.app`.
 
 ## Requirements
 
