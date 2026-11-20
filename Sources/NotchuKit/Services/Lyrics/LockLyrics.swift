@@ -333,7 +333,7 @@ struct LockLyricsView: View {
         VStack(alignment: alignment, spacing: 2) {
             Text(track.title)
                 .font(.system(size: titleSize, weight: .semibold))
-            Text(track.artist)
+            Text(track.subtitle)
                 .font(.system(size: titleSize - 2))
                 .foregroundStyle(.white.opacity(0.65))
         }

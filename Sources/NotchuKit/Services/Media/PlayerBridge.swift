@@ -148,7 +148,7 @@ final class PlayerBridge {
                 if image == nil, id == "com.apple.Music", self.pendingArtworkKey != key,
                    let title = reply.atIndex(1)?.stringValue, let artist = reply.atIndex(2)?.stringValue, !title.isEmpty {
                     self.pendingArtworkKey = key
-                    self.fetchCatalogArtwork(title: title, artist: artist, id: id, key: key)
+                    self.fetchCatalogArtwork(title: title, artist: artist, album: reply.atIndex(3)?.stringValue ?? "", id: id, key: key)
                 }
                 self.artworkKeys[id] = key
                 self.cachedArtworks[id] = image
@@ -239,21 +239,21 @@ extension PlayerBridge {
         queue.async {
             guard !title.isEmpty, self.artworkStore[key] == nil, self.pendingArtworkKey != key else { return }
             self.pendingArtworkKey = key
-            self.fetchCatalogArtwork(title: title, artist: artist, id: id, key: key)
+            self.fetchCatalogArtwork(title: title, artist: artist, album: album, id: id, key: key)
         }
     }
 
     /// Finds the cover Apple Music shows: first the artwork URL from Music's own catalog
     /// cache (the exact image), else Apple's public iTunes Search in the same store, taking a
-    /// result only if both title and artist match. Only title and artist are sent.
-    fileprivate func fetchCatalogArtwork(title: String, artist: String, id: String, key: String) {
+    /// result only if title, artist and album all match. Only title and artist are sent.
+    fileprivate func fetchCatalogArtwork(title: String, artist: String, album: String, id: String, key: String) {
         // Reading Music's cache parses a few JSON files; while a cover is still missing, do
         // it at most every 5 s.
         if let last = cacheCheckedAt[key], Date().timeIntervalSince(last) < 5, failedArtworkKeys.contains(key) {
             pendingArtworkKey = nil; return
         }
         cacheCheckedAt[key] = Date()
-        if let url = AppleMusicLyricsCache.artworkURL(title: title, artist: artist) {
+        if let url = AppleMusicLyricsCache.artworkURL(title: title, artist: artist, album: album) {
             downloadArtwork(url, id: id, key: key, searchFallback: nil)
             return
         }
@@ -272,9 +272,12 @@ extension PlayerBridge {
             let results = (response as? HTTPURLResponse)?.statusCode == 200
                 ? ((data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any])?["results"] as? [[String: Any]] ?? [])
                 : []
-            let match = results.first {
+            // The same song is often listed on a single, an album and compilations; take the
+            // release Music is playing. Without an album to compare, the first match will do.
+            let candidates = results.filter {
                 Self.sameTitle($0["trackName"] as? String, title) && Self.sameArtist($0["artistName"] as? String, artist)
             }
+            let match = album.isEmpty ? candidates.first : candidates.first { AppleMusicLyricsCache.sameAlbum($0["collectionName"] as? String, album) }
             guard let address = (match?["artworkUrl100"] as? String)?.replacingOccurrences(of: "100x100bb", with: "600x600bb"),
                   let imageURL = URL(string: address), imageURL.scheme == "https", imageURL.host?.hasSuffix("mzstatic.com") == true else {
                 // No confident match: show no cover rather than a wrong one, and do not ask

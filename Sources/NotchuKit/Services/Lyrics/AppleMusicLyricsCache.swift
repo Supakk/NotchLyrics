@@ -45,7 +45,7 @@ enum AppleMusicLyricsCache {
 
     /// The cover Apple Music itself shows for a song it has played, from its cached catalog
     /// entry (the artwork URL is a template sized here).
-    static func artworkURL(title: String, artist: String, size: Int = 600, directory: URL = cacheDirectory) -> URL? {
+    static func artworkURL(title: String, artist: String, album: String = "", size: Int = 600, directory: URL = cacheDirectory) -> URL? {
         for body in recentSongResponses(in: directory, lyricsOnly: false) {
             guard let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
                   let songs = json["data"] as? [[String: Any]] else { continue }
@@ -53,6 +53,9 @@ enum AppleMusicLyricsCache {
                 guard let attributes = song["attributes"] as? [String: Any],
                       Self.same(attributes["name"] as? String, title),
                       Self.same(attributes["artistName"] as? String, artist) || artist.isEmpty,
+                      // The same song can sit on a single, an album and compilations, each with
+                      // its own cover: take the release that is playing.
+                      album.isEmpty || sameAlbum(attributes["albumName"] as? String, album),
                       let artwork = attributes["artwork"] as? [String: Any],
                       let template = artwork["url"] as? String else { continue }
                 let address = template
@@ -92,6 +95,18 @@ enum AppleMusicLyricsCache {
         if let list = attributes["ttmlLocalizations"] as? String { return list }
         if let map = attributes["ttmlLocalizations"] as? [String: String] { return map.values.first }
         return nil
+    }
+
+    /// Album names match ignoring case and accents; a catalog name may or may not carry the
+    /// " - Single" / " - EP" suffix that Music's scripting adds or drops.
+    static func sameAlbum(_ a: String?, _ b: String) -> Bool {
+        guard let a else { return false }
+        func core(_ s: String) -> String {
+            s.replacingOccurrences(of: #"\s+-\s+(single|ep)\s*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+                .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return !core(b).isEmpty && core(a) == core(b)
     }
 
     private static func same(_ a: String?, _ b: String) -> Bool {
